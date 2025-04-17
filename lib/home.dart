@@ -235,6 +235,7 @@ class _HomePageState extends State<HomePage> {
           BottomNavigationBarItem(icon: Icon(Icons.home), label: '主頁'),
           BottomNavigationBarItem(icon: Icon(Icons.map), label: '行程規劃'),
           BottomNavigationBarItem(icon: Icon(Icons.person), label: '個人設定'),
+          BottomNavigationBarItem(icon: Icon(Icons.book), label: '日誌'),
         ],
         currentIndex: _selectedIndex,
         selectedItemColor: Colors.blueAccent,
