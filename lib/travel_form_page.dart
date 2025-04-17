@@ -84,20 +84,37 @@ class _TravelFormPageState extends State<TravelFormPage>
       );
     }).toList();
 
+    // 建立對應 map，並將「台」轉成「臺」
     Map<String, List<String>> map = {};
     for (var row in data) {
-      final city = row['縣市'] ?? '';
-      final town = row['鄉鎮市'] ?? '';
+      final city = row['縣市']?.replaceAll('台', '臺') ?? '';
+      final town = row['鄉鎮市']?.replaceAll('台', '臺') ?? '';
       map.putIfAbsent(city, () => []);
       if (!map[city]!.contains(town)) {
         map[city]!.add(town);
       }
     }
 
+    // ✅ 自訂縣市排序
+    final orderedCityList = [
+      '基隆市', '臺北市', '新北市', '桃園市', '新竹市', '新竹縣',
+      '苗栗縣', '臺中市', '彰化縣', '南投縣', '雲林縣', '嘉義市', '嘉義縣',
+      '臺南市', '高雄市', '屏東縣', '宜蘭縣', '花蓮縣', '臺東縣',
+      '澎湖縣', '金門縣', '連江縣'
+    ];
+
+    // 🔁 排序並建立新的 map（地區也排序過）
+    final sortedMap = {
+      for (var city in orderedCityList)
+        if (map.containsKey(city)) city: (map[city]!..sort())
+    };
+
     setState(() {
-      cityTownMap = map;
+      cityTownMap = sortedMap;
     });
   }
+
+
 
   void _filterByCityTown() {
     if (selectedCity != null) {
