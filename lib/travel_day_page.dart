@@ -8,8 +8,9 @@ class TravelDayPage extends StatefulWidget {
   final DateTime endDate;
   final int budget;
   final String transport;
-  final List<List<Map<String, String>>>? initialSpots;       // 加入
-  final List<List<String>>? initialTransports;               // 加入
+  final List<List<Map<String, String>>>? initialSpots;
+  final List<List<String>>? initialTransports;
+  final bool readOnly;
 
   const TravelDayPage({
     super.key,
@@ -20,6 +21,7 @@ class TravelDayPage extends StatefulWidget {
     required this.transport,
     this.initialSpots,
     this.initialTransports,
+    this.readOnly = false,
   });
 
   @override
@@ -43,6 +45,8 @@ class _TravelDayPageState extends State<TravelDayPage> with TickerProviderStateM
   }
 
   void _addSpot(int dayIndex) async {
+    if (widget.readOnly) return;
+
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
@@ -79,7 +83,7 @@ class _TravelDayPageState extends State<TravelDayPage> with TickerProviderStateM
       'daily_transports': dailyTransports,
     };
 
-    Navigator.pop(context, tripData); // ✅ 回傳資料給 TravelInputPage
+    Navigator.pop(context, tripData);
   }
 
   void _showSpotDetail(Map<String, String> spot) {
@@ -120,7 +124,7 @@ class _TravelDayPageState extends State<TravelDayPage> with TickerProviderStateM
       length: dayCount,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text("🗓 安排每日行程"),
+          title: const Text("🗓 每日行程"),
           bottom: TabBar(
             controller: _tabController,
             isScrollable: true,
@@ -138,14 +142,16 @@ class _TravelDayPageState extends State<TravelDayPage> with TickerProviderStateM
             final spots = dailySpots[dayIndex];
             final transports = dailyTransports[dayIndex];
             final int itemCount = spots.length > 1 ? (spots.length * 2 - 1) : spots.length;
+
             return Column(
               children: [
                 const SizedBox(height: 10),
-                ElevatedButton.icon(
-                  onPressed: () => _addSpot(dayIndex),
-                  icon: const Icon(Icons.add_location_alt),
-                  label: const Text("新增景點"),
-                ),
+                if (!widget.readOnly)
+                  ElevatedButton.icon(
+                    onPressed: () => _addSpot(dayIndex),
+                    icon: const Icon(Icons.add_location_alt),
+                    label: const Text("新增景點"),
+                  ),
                 Expanded(
                   child: ListView.builder(
                     itemCount: itemCount,
@@ -183,14 +189,16 @@ class _TravelDayPageState extends State<TravelDayPage> with TickerProviderStateM
             );
           }),
         ),
-        bottomNavigationBar: Padding(
-          padding: const EdgeInsets.all(12),
-          child: ElevatedButton.icon(
-            onPressed: _saveTrip,
-            icon: const Icon(Icons.check),
-            label: const Text("儲存行程"),
-          ),
-        ),
+        bottomNavigationBar: widget.readOnly
+            ? null
+            : Padding(
+                padding: const EdgeInsets.all(12),
+                child: ElevatedButton.icon(
+                  onPressed: _saveTrip,
+                  icon: const Icon(Icons.check),
+                  label: const Text("儲存行程"),
+                ),
+              ),
       ),
     );
   }
