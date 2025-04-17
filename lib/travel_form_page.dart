@@ -225,6 +225,18 @@ class _TravelFormPageState extends State<TravelFormPage>
     );
 
     if (result != null && result is Map<String, dynamic> && result['success'] == true) {
+      // ✅ 新增這段程式碼：儲存行程到 SharedPreferences
+      final prefs = await SharedPreferences.getInstance();
+      final existingTrips = prefs.getStringList('my_trips') ?? [];
+      final newTrip = jsonEncode({
+        'name': widget.initialData?['name'] ?? '未命名行程',
+        'date': widget.initialData?['startDate'] ?? '',
+        'spots': selectedSpots,
+      });
+      existingTrips.add(newTrip);
+      await prefs.setStringList('my_trips', existingTrips);
+
+      // 然後再返回
       Navigator.pop(context, {
         'dayIndex': widget.dayIndex,
         'updatedSpots': List<Map<String, String>>.from(result['updatedSpots'] ?? []),
@@ -233,6 +245,7 @@ class _TravelFormPageState extends State<TravelFormPage>
       });
     }
   }
+
 
   @override
   Widget build(BuildContext context) {
