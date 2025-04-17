@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
@@ -86,6 +87,31 @@ class _TravelInputPageState extends State<TravelInputPage> {
     }
   }
 
+  void _viewTrip(int index) {
+    final trip = trips[index];
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => TravelDayPage(
+          tripName: trip['trip_name'],
+          startDate: DateTime.parse(trip['start_date']),
+          endDate: DateTime.parse(trip['end_date']),
+          budget: trip['budget'],
+          transport: trip['transport'],
+          initialSpots: (trip['daily_spots'] as List)
+              .map<List<Map<String, String>>>((day) =>
+                  (day as List).map<Map<String, String>>((s) => Map<String, String>.from(s)).toList())
+              .toList(),
+          initialTransports: (trip['daily_transports'] as List)
+              .map<List<String>>((tList) =>
+                  (tList as List).map<String>((t) => t.toString()).toList())
+              .toList(),
+          readOnly: true,
+        ),
+      ),
+    );
+  }
+
   void _deleteTrip(int index) async {
     setState(() {
       trips.removeAt(index);
@@ -130,53 +156,56 @@ class _TravelInputPageState extends State<TravelInputPage> {
       itemCount: trips.length,
       itemBuilder: (context, index) {
         final trip = trips[index];
-        return Card(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          elevation: 3,
-          margin: const EdgeInsets.only(bottom: 16),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+        return InkWell(
+          onTap: () => _viewTrip(index),
+          child: Card(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            elevation: 3,
+            margin: const EdgeInsets.only(bottom: 16),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              trip["trip_name"]?.toString().isNotEmpty == true
+                                  ? trip["trip_name"]
+                                  : '未命名行程',
+                              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                            ),
+                            Text(
+                              "${trip["trip_type"] ?? '自訂'}",
+                              style: const TextStyle(color: Colors.black54),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Row(
                         children: [
-                          Text(
-                            trip["trip_name"]?.toString().isNotEmpty == true
-                                ? trip["trip_name"]
-                                : '未命名行程',
-                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                          IconButton(
+                            icon: const Icon(Icons.edit, color: Colors.blue),
+                            onPressed: () => _editTrip(index),
                           ),
-                          Text(
-                            "${trip["trip_type"] ?? '自訂'}",
-                            style: const TextStyle(color: Colors.black54),
+                          IconButton(
+                            icon: const Icon(Icons.delete, color: Colors.red),
+                            onPressed: () => _deleteTrip(index),
                           ),
                         ],
                       ),
-                    ),
-                    Row(
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.edit, color: Colors.blue),
-                          onPressed: () => _editTrip(index),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.delete, color: Colors.red),
-                          onPressed: () => _deleteTrip(index),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text("📅 ${trip["start_date"]} ~ ${trip["end_date"]}"),
-                Text("💸 預算：\$${trip["budget"]}"),
-              ],
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text("📅 ${trip["start_date"]} ~ ${trip["end_date"]}"),
+                  Text("💸 預算：\$${trip["budget"]}"),
+                ],
+              ),
             ),
           ),
         );
