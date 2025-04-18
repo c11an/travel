@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:travel/journal_page.dart';
+import 'package:travel/profile_page.dart';
 import 'package:travel/travel_form_page.dart';
 import 'package:travel/travel_input_page.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -199,7 +200,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildTravelPlanPage() => const TravelInputPage();
-  Widget _buildProfilePage() => const Center(child: Text('⚙️ 個人設定（待開發）'));
+  Widget _buildProfilePage() => const ProfilePage();
   Widget _buildJournalPage() => const JournalPage();
 
   @override
@@ -207,12 +208,12 @@ class _HomePageState extends State<HomePage> {
     final pages = [
       _buildHomePage(),
       _buildTravelPlanPage(),
-      _buildProfilePage(),
       _buildJournalPage(),
+      _buildProfilePage(),      
     ];
 
     return Scaffold(
-      appBar: AppBar(title: const Text('旅遊應用')),
+      appBar: AppBar(title: const Text('Trip Tok')),
       body: pages[_selectedIndex],
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
@@ -222,9 +223,8 @@ class _HomePageState extends State<HomePage> {
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: '主頁'),
           BottomNavigationBarItem(icon: Icon(Icons.map), label: '行程規劃'),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: '個人設定'),          
           BottomNavigationBarItem(icon: Icon(Icons.book), label: '日誌'),
-          
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: '個人設定'),         
         ],
       ),
     );
