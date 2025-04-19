@@ -150,10 +150,10 @@ class _HomePageState extends State<HomePage> {
           Row(
             children: [
               _buildServiceButton("機票", Icons.flight_takeoff, () {
-                _launchURL("https://flights.google.com/");
+                _launchURL("https://flight.eztravel.com.tw/?utm_source=google&utm_medium=ad_sem&AllianceID=201&SID=1&ouid=11811814559&gad_source=1&gbraid=0AAAAAC2qCl8DsS8YqH7xiUfYSaf94UAuI&gclid=CjwKCAjw8IfABhBXEiwAxRHlsGGYSGdalPC4ukq8y22KlnAM6_OKRDANOSwGAXLDJ6s3ZmiduAbpmxoCe7AQAvD_BwE");
               }),
-              _buildServiceButton("旅遊網卡", Icons.sim_card, () {
-                _launchURL("https://www.klook.com/zh-TW/");
+              _buildServiceButton("", Icons.sim_card, () {
+                _launchURL("https://yoyogoshop.com/");
               }),
             ],
           ),
