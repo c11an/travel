@@ -20,7 +20,7 @@ class _HomePageState extends State<HomePage> {
   final List<String> _images = [
     'assets/images/jiufen.jpg',
     'assets/images/SunSet.jpg',
-    'assets/images/Alishan.jpg'
+    'assets/images/Alishan.jpg',
   ];
 
   @override
@@ -32,12 +32,14 @@ class _HomePageState extends State<HomePage> {
   void _startAutoSlide() {
     Future.delayed(const Duration(seconds: 3), () {
       if (!mounted) return;
-      _currentPage = (_currentPage + 1) % _images.length;
-      _pageController.animateToPage(
-        _currentPage,
-        duration: const Duration(milliseconds: 500),
-        curve: Curves.easeInOut,
-      );
+      setState(() {
+        _currentPage = (_currentPage + 1) % _images.length;
+        _pageController.animateToPage(
+          _currentPage,
+          duration: const Duration(milliseconds: 500),
+          curve: Curves.easeInOut,
+        );
+      });
       _startAutoSlide();
     });
   }
@@ -75,18 +77,22 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildNavButton(IconData icon, String label, VoidCallback onTap) {
-    return ElevatedButton.icon(
-      onPressed: onTap,
-      icon: Icon(icon, size: 26),
-      label: Text(label),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-        elevation: 2,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+  Widget _buildServiceButton(String label, IconData icon, VoidCallback onTap) {
+    return Expanded(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6),
+        child: ElevatedButton.icon(
+          onPressed: onTap,
+          icon: Icon(icon, size: 20),
+          label: Text(label),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFFF7F7F7),
+            foregroundColor: Colors.black,
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
         ),
       ),
     );
@@ -94,15 +100,15 @@ class _HomePageState extends State<HomePage> {
 
   Widget _buildHomePage() {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16.0),
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 輪播圖
+          // 輪播圖加回來
           ClipRRect(
             borderRadius: BorderRadius.circular(15),
             child: SizedBox(
-              height: 200,
+              height: 180,
               width: double.infinity,
               child: PageView.builder(
                 controller: _pageController,
@@ -114,34 +120,25 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
           ),
-          const SizedBox(height: 24),
-          Text('選擇您的服務', style: Theme.of(context).textTheme.titleLarge),
-          const SizedBox(height: 12),
+          const SizedBox(height: 20),
 
-          // 功能按鈕
+          const Text(
+            "Trip Tok",
+            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 20),
+
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              _buildNavButton(Icons.place, '找景點', () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const TravelFormPage(
-                      dayIndex: 0,
-                      browseOnly: true,
-                    ),
-                  ),
-                );
-              }),
-              _buildNavButton(Icons.car_rental, '租車 / 叫車', () {
-                _showOptionsDialog('選擇租車網站', {
+              _buildServiceButton("交通", Icons.directions_car, () {
+                _showOptionsDialog("選擇租車網站", {
                   '格上租車': 'https://www.car-plus.com.tw/',
                   '和運租車': 'https://www.easyrent.com.tw/',
                   'iRent': 'https://www.irentcar.com.tw/irent/web/',
                 });
               }),
-              _buildNavButton(Icons.hotel, '住宿訂房', () {
-                _showOptionsDialog('選擇訂房網站', {
+              _buildServiceButton("住宿", Icons.hotel, () {
+                _showOptionsDialog("選擇訂房網站", {
                   'Agoda': 'https://www.agoda.com/zh-tw',
                   'Booking.com': 'https://www.booking.com/zh-tw/index.html',
                   'AsiaYo': 'https://asiayo.com/zh-tw/',
@@ -149,51 +146,39 @@ class _HomePageState extends State<HomePage> {
               }),
             ],
           ),
-          const SizedBox(height: 30),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              _buildServiceButton("機票", Icons.flight_takeoff, () {
+                _launchURL("https://flights.google.com/");
+              }),
+              _buildServiceButton("旅遊網卡", Icons.sim_card, () {
+                _launchURL("https://www.klook.com/zh-TW/");
+              }),
+            ],
+          ),
 
-          // 我的旅遊規劃
-          _buildCardSection(
-            title: '🗂 我的旅遊規劃',
-            color: Colors.blue.shade100,
-            content: Column(
+          const SizedBox(height: 30),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.blue.shade100,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                const Text('🗂 我的旅遊規劃', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 10),
                 const Text('目前沒有旅遊規劃紀錄', style: TextStyle(color: Colors.grey)),
                 const SizedBox(height: 10),
                 ElevatedButton(
-                  onPressed: () => _onItemTapped(1),
-                  child: const Text('新增旅遊計劃'),
+                  onPressed: () => _onItemTapped(2),
+                  child: const Text('新增旅遊計畫'),
                 ),
               ],
             ),
           ),
-
-          // 推薦行程
-          const SizedBox(height: 20),
-          _buildCardSection(
-            title: '推薦行程',
-            color: const Color.fromARGB(230, 251, 222, 187),
-            content: const Text('目前沒有推薦行程', style: TextStyle(color: Colors.grey)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCardSection({required String title, required Color color, required Widget content}) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(15),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(title, style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 10),
-          content,
         ],
       ),
     );
@@ -202,29 +187,32 @@ class _HomePageState extends State<HomePage> {
   Widget _buildTravelPlanPage() => const TravelInputPage();
   Widget _buildProfilePage() => const ProfilePage();
   Widget _buildJournalPage() => const JournalPage();
+  Widget _buildExplorePage() => const TravelFormPage(dayIndex: 0, browseOnly: true);
 
   @override
   Widget build(BuildContext context) {
     final pages = [
       _buildHomePage(),
+      _buildExplorePage(),
       _buildTravelPlanPage(),
       _buildJournalPage(),
-      _buildProfilePage(),      
+      _buildProfilePage(),
     ];
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Trip Tok')),
       body: pages[_selectedIndex],
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
         selectedItemColor: Colors.blueAccent,
-        unselectedItemColor: Colors.blueAccent,
+        unselectedItemColor: Colors.grey,
         onTap: _onItemTapped,
+        type: BottomNavigationBarType.fixed,
         items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: '主頁'),
-          BottomNavigationBarItem(icon: Icon(Icons.map), label: '行程規劃'),
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: '首頁'),
+          BottomNavigationBarItem(icon: Icon(Icons.explore), label: '探索'),
+          BottomNavigationBarItem(icon: Icon(Icons.map), label: '行程'),
           BottomNavigationBarItem(icon: Icon(Icons.book), label: '日誌'),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: '個人設定'),         
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: '個人'),
         ],
       ),
     );
