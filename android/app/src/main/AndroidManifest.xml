@@ -1,47 +1,55 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <application
-        android:label="travel"
-        android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
-        
-        <activity
-            android:name=".MainActivity"
-            android:exported="true"
-            android:launchMode="singleTop"
-            android:taskAffinity=""
-            android:theme="@style/LaunchTheme"
-            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
-            android:hardwareAccelerated="true"
-            android:windowSoftInputMode="adjustResize">
 
-            <!-- Flutter UI 初始化時使用的主題 -->
-            <meta-data
-                android:name="io.flutter.embedding.android.NormalTheme"
-                android:resource="@style/NormalTheme" />
+  <!-- 權限 -->
+  <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+  <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+  <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
 
-            <!-- Google Maps API 金鑰 -->
-            <meta-data
-                android:name="com.google.android.geo.API_KEY"
-                android:value="AIzaSyBpVQtNrb5JKFyBR0KqsRDsopQxUUik4KM" />
 
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
+  <application
+      android:label="travel"
+      android:name="${applicationName}"
+      android:icon="@mipmap/ic_launcher">
 
-        <!-- Flutter plugin 登記資訊 -->
-        <meta-data
-            android:name="flutterEmbedding"
-            android:value="2" />
-    </application>
+      <!-- ✅ Google Maps API 金鑰：放在 application 裡 -->
+      <meta-data
+          android:name="com.google.android.geo.API_KEY"
+          android:value="AIzaSyC1UdVpu5sEOvOrJCidr8YZPMWTgQKazjs" />
 
-    <!-- Flutter 用於查詢支援 PROCESS_TEXT 的 app -->
-    <queries>
-        <intent>
-            <action android:name="android.intent.action.PROCESS_TEXT" />
-            <data android:mimeType="text/plain" />
-        </intent>
-    </queries>
+      <!-- Flutter plugin 登記 -->
+      <meta-data
+          android:name="flutterEmbedding"
+          android:value="2" />
+
+      <activity
+          android:name=".MainActivity"
+          android:exported="true"
+          android:launchMode="singleTop"
+          android:taskAffinity=""
+          android:theme="@style/LaunchTheme"
+          android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+          android:hardwareAccelerated="true"
+          android:windowSoftInputMode="adjustResize">
+
+          <!-- Flutter UI 初始化時使用的主題 -->
+          <meta-data
+              android:name="io.flutter.embedding.android.NormalTheme"
+              android:resource="@style/NormalTheme" />
+
+          <intent-filter>
+              <action android:name="android.intent.action.MAIN" />
+              <category android:name="android.intent.category.LAUNCHER" />
+          </intent-filter>
+      </activity>
+  </application>
+
+  <!-- Flutter 查詢可處理 PROCESS_TEXT 的 app -->
+  <queries>
+      <intent>
+          <action android:name="android.intent.action.PROCESS_TEXT" />
+          <data android:mimeType="text/plain" />
+      </intent>
+  </queries>
 </manifest>
+
 

@@ -1,6 +1,6 @@
-
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:travel/travel_form_page.dart';
 import 'dart:convert';
 
 import 'travel_info_page.dart';
@@ -28,7 +28,10 @@ class _TravelInputPageState extends State<TravelInputPage> {
     final prefs = await SharedPreferences.getInstance();
     final tripListString = prefs.getStringList('trip_list') ?? [];
     setState(() {
-      trips = tripListString.map((e) => jsonDecode(e) as Map<String, dynamic>).toList();
+      trips =
+          tripListString
+              .map((e) => jsonDecode(e) as Map<String, dynamic>)
+              .toList();
     });
   }
 
@@ -41,7 +44,8 @@ class _TravelInputPageState extends State<TravelInputPage> {
   Future<void> _loadFavorites() async {
     final prefs = await SharedPreferences.getInstance();
     final favList = prefs.getStringList('favorite_spots') ?? [];
-    final favorites = favList.map((e) => Map<String, String>.from(jsonDecode(e))).toList();
+    final favorites =
+        favList.map((e) => Map<String, String>.from(jsonDecode(e))).toList();
 
     final Map<String, List<Map<String, String>>> grouped = {};
     for (var spot in favorites) {
@@ -60,21 +64,34 @@ class _TravelInputPageState extends State<TravelInputPage> {
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => TravelDayPage(
-          tripName: trip['trip_name'],
-          startDate: DateTime.parse(trip['start_date']),
-          endDate: DateTime.parse(trip['end_date']),
-          budget: trip['budget'],
-          transport: trip['transport'],
-          initialSpots: (trip['daily_spots'] as List)
-              .map<List<Map<String, String>>>((day) =>
-                  (day as List).map<Map<String, String>>((s) => Map<String, String>.from(s)).toList())
-              .toList(),
-          initialTransports: (trip['daily_transports'] as List)
-              .map<List<String>>((tList) =>
-                  (tList as List).map<String>((t) => t.toString()).toList())
-              .toList(),
-        ),
+        builder:
+            (_) => TravelDayPage(
+              tripName: trip['trip_name'],
+              startDate: DateTime.parse(trip['start_date']),
+              endDate: DateTime.parse(trip['end_date']),
+              budget: trip['budget'],
+              transport: trip['transport'],
+              initialSpots:
+                  (trip['daily_spots'] as List)
+                      .map<List<Map<String, String>>>(
+                        (day) =>
+                            (day as List)
+                                .map<Map<String, String>>(
+                                  (s) => Map<String, String>.from(s),
+                                )
+                                .toList(),
+                      )
+                      .toList(),
+              initialTransports:
+                  (trip['daily_transports'] as List)
+                      .map<List<String>>(
+                        (tList) =>
+                            (tList as List)
+                                .map<String>((t) => t.toString())
+                                .toList(),
+                      )
+                      .toList(),
+            ),
       ),
     );
 
@@ -92,22 +109,35 @@ class _TravelInputPageState extends State<TravelInputPage> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => TravelDayPage(
-          tripName: trip['trip_name'],
-          startDate: DateTime.parse(trip['start_date']),
-          endDate: DateTime.parse(trip['end_date']),
-          budget: trip['budget'],
-          transport: trip['transport'],
-          initialSpots: (trip['daily_spots'] as List)
-              .map<List<Map<String, String>>>((day) =>
-                  (day as List).map<Map<String, String>>((s) => Map<String, String>.from(s)).toList())
-              .toList(),
-          initialTransports: (trip['daily_transports'] as List)
-              .map<List<String>>((tList) =>
-                  (tList as List).map<String>((t) => t.toString()).toList())
-              .toList(),
-          readOnly: true,
-        ),
+        builder:
+            (_) => TravelDayPage(
+              tripName: trip['trip_name'],
+              startDate: DateTime.parse(trip['start_date']),
+              endDate: DateTime.parse(trip['end_date']),
+              budget: trip['budget'],
+              transport: trip['transport'],
+              initialSpots:
+                  (trip['daily_spots'] as List)
+                      .map<List<Map<String, String>>>(
+                        (day) =>
+                            (day as List)
+                                .map<Map<String, String>>(
+                                  (s) => Map<String, String>.from(s),
+                                )
+                                .toList(),
+                      )
+                      .toList(),
+              initialTransports:
+                  (trip['daily_transports'] as List)
+                      .map<List<String>>(
+                        (tList) =>
+                            (tList as List)
+                                .map<String>((t) => t.toString())
+                                .toList(),
+                      )
+                      .toList(),
+              readOnly: true,
+            ),
       ),
     );
   }
@@ -126,11 +156,18 @@ class _TravelInputPageState extends State<TravelInputPage> {
     );
 
     if (result != null && result is Map<String, dynamic>) {
-      setState(() {
-        trips.add(result);
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => TravelFormPage(initialData: result)),
+      ).then((finalTripData) {
+        if (finalTripData != null && finalTripData is Map<String, dynamic>) {
+          setState(() {
+            trips.add(finalTripData); // ✅ 這邊就不會報錯了
+          });
+          _saveTripsToStorage();
+          _loadFavorites();
+        }
       });
-      _saveTripsToStorage();
-      _loadFavorites(); // 更新收藏
     }
   }
 
@@ -149,7 +186,12 @@ class _TravelInputPageState extends State<TravelInputPage> {
 
   Widget _buildTripList() {
     if (trips.isEmpty) {
-      return const Center(child: Text("目前沒有旅遊規劃紀錄", style: TextStyle(fontSize: 16, color: Colors.grey)));
+      return const Center(
+        child: Text(
+          "目前沒有旅遊規劃紀錄",
+          style: TextStyle(fontSize: 16, color: Colors.grey),
+        ),
+      );
     }
 
     return ListView.builder(
@@ -159,7 +201,9 @@ class _TravelInputPageState extends State<TravelInputPage> {
         return InkWell(
           onTap: () => _viewTrip(index),
           child: Card(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
             elevation: 3,
             margin: const EdgeInsets.only(bottom: 16),
             child: Padding(
@@ -178,7 +222,10 @@ class _TravelInputPageState extends State<TravelInputPage> {
                               trip["trip_name"]?.toString().isNotEmpty == true
                                   ? trip["trip_name"]
                                   : '未命名行程',
-                              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                             Text(
                               "${trip["trip_type"] ?? '自訂'}",
@@ -215,29 +262,42 @@ class _TravelInputPageState extends State<TravelInputPage> {
 
   Widget _buildFavoriteSpots() {
     if (favoritesByCity.isEmpty) {
-      return const Center(child: Text("目前沒有收藏的景點", style: TextStyle(fontSize: 16, color: Colors.grey)));
+      return const Center(
+        child: Text(
+          "目前沒有收藏的景點",
+          style: TextStyle(fontSize: 16, color: Colors.grey),
+        ),
+      );
     }
 
     return ListView(
-      children: favoritesByCity.entries.map((entry) {
-        final city = entry.key;
-        final spots = entry.value;
+      children:
+          favoritesByCity.entries.map((entry) {
+            final city = entry.key;
+            final spots = entry.value;
 
-        return ExpansionTile(
-          title: Text(city, style: const TextStyle(fontWeight: FontWeight.bold)),
-          children: spots.map((spot) {
-            return ListTile(
-              leading: const Icon(Icons.place, color: Colors.deepPurple),
-              title: Text(spot['Name'] ?? '無名稱'),
-              subtitle: Text(spot['Add'] ?? '（無地址）'),
-              trailing: IconButton(
-                icon: const Icon(Icons.delete, color: Colors.red),
-                onPressed: () => _removeFavorite(spot),
+            return ExpansionTile(
+              title: Text(
+                city,
+                style: const TextStyle(fontWeight: FontWeight.bold),
               ),
+              children:
+                  spots.map((spot) {
+                    return ListTile(
+                      leading: const Icon(
+                        Icons.place,
+                        color: Colors.deepPurple,
+                      ),
+                      title: Text(spot['Name'] ?? '無名稱'),
+                      subtitle: Text(spot['Add'] ?? '（無地址）'),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.delete, color: Colors.red),
+                        onPressed: () => _removeFavorite(spot),
+                      ),
+                    );
+                  }).toList(),
             );
           }).toList(),
-        );
-      }).toList(),
     );
   }
 
@@ -248,17 +308,15 @@ class _TravelInputPageState extends State<TravelInputPage> {
       child: Scaffold(
         appBar: AppBar(
           title: const Text("🗂 我的行程與收藏"),
-          bottom: const TabBar(
-            tabs: [
-              Tab(text: "行程規劃"),
-              Tab(text: "我的收藏"),
-            ],
-          ),
+          bottom: const TabBar(tabs: [Tab(text: "行程規劃"), Tab(text: "我的收藏")]),
         ),
         body: TabBarView(
           children: [
             Padding(padding: const EdgeInsets.all(16), child: _buildTripList()),
-            Padding(padding: const EdgeInsets.all(16), child: _buildFavoriteSpots()),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: _buildFavoriteSpots(),
+            ),
           ],
         ),
         floatingActionButton: FloatingActionButton.extended(

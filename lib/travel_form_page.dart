@@ -1,74 +1,88 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:csv/csv.dart';
+import 'package:intl/intl.dart';
+import 'package:location/location.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:travel/travel_schedule_page.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'dart:convert';
+import 'package:travel/travel_schedule_page.dart';
 
 class TravelFormPage extends StatefulWidget {
-  final Map<String, dynamic>? initialData;
-  final bool returnToInputPage;
   final int dayIndex;
   final bool browseOnly;
+  final Map<String, dynamic>? initialData;
 
-  const TravelFormPage({
-    super.key,
-    this.initialData,
-    this.returnToInputPage = false,
+  TravelFormPage({
+    Key? key,
     this.dayIndex = 0,
     this.browseOnly = false,
-  });
+    this.initialData,
+  }) : super(key: key);
 
   @override
   State<TravelFormPage> createState() => _TravelFormPageState();
 }
 
-class _TravelFormPageState extends State<TravelFormPage>
-    with SingleTickerProviderStateMixin {
-  final TextEditingController _cityController = TextEditingController();
+class _TravelFormPageState extends State<TravelFormPage> {
   List<Map<String, String>> allSpots = [];
   List<Map<String, String>> filteredSpots = [];
   List<Map<String, String>> selectedSpots = [];
-  List<String> favoriteSpotNames = [];
-  Map<String, List<Map<String, String>>> favoritesByCity = {};
+  List<Map<String, String>> favoriteSpots = [];
+
   Map<String, List<String>> cityTownMap = {};
   String? selectedCity;
   String? selectedTown;
 
-  late TabController _tabController;
+  LatLng? currentLocation;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-    _loadAllCsvFiles();
-    _loadFavorites();
+    _loadSpots();
     _loadCountyData();
-    _cityController.addListener(() {
-      _filterByKeyword(_cityController.text);
-    });
-
-    if (widget.initialData != null && widget.initialData!['spots'] != null) {
-      selectedSpots = List<Map<String, String>>.from(widget.initialData!['spots']);
-    }
+    _getUserLocation();
+    _loadFavorites();
   }
 
-  Future<void> _loadAllCsvFiles() async {
-    final raw = await rootBundle.load('assets/data/ScenicSpot.csv');
-    final decoded = const Utf8Decoder().convert(raw.buffer.asUint8List());
-    final rows = const CsvToListConverter().convert(decoded);
+  Future<void> _getUserLocation() async {
+    Location location = Location();
+    bool serviceEnabled = await location.serviceEnabled();
+    if (!serviceEnabled) {
+      serviceEnabled = await location.requestService();
+      if (!serviceEnabled) return;
+    }
 
-    final headers = rows.first.map((e) => e.toString()).toList();
-    final data = rows.skip(1).map((row) {
-      return Map<String, String>.fromIterables(
-        headers,
-        row.map((e) => e.toString()),
+    PermissionStatus permissionGranted = await location.hasPermission();
+    if (permissionGranted == PermissionStatus.denied) {
+      permissionGranted = await location.requestPermission();
+      if (permissionGranted != PermissionStatus.granted) return;
+    }
+
+    final locData = await location.getLocation();
+    setState(() {
+      currentLocation = LatLng(
+        locData.latitude ?? 25.0330,
+        locData.longitude ?? 121.5654,
       );
-    }).toList();
+    });
+  }
+
+  Future<void> _loadSpots() async {
+    final rawData = await rootBundle.loadString('assets/data/ScenicSpot.csv');
+    final csvRows = const CsvToListConverter().convert(rawData);
+    final headers = csvRows.first.map((e) => e.toString()).toList();
+    final data =
+        csvRows.skip(1).map((row) {
+          return Map<String, String>.fromIterables(
+            headers,
+            row.map((e) => e.toString()),
+          );
+        }).toList();
 
     setState(() {
       allSpots = data;
-      filteredSpots = data;
     });
   }
 
@@ -76,14 +90,14 @@ class _TravelFormPageState extends State<TravelFormPage>
     final raw = await rootBundle.loadString('assets/data/country.csv');
     final rows = const CsvToListConverter().convert(raw);
     final headers = rows.first.map((e) => e.toString()).toList();
-    final data = rows.skip(1).map((row) {
-      return Map<String, String>.fromIterables(
-        headers,
-        row.map((e) => e.toString()),
-      );
-    }).toList();
+    final data =
+        rows.skip(1).map((row) {
+          return Map<String, String>.fromIterables(
+            headers,
+            row.map((e) => e.toString()),
+          );
+        }).toList();
 
-    // 建立對應 map，並將「台」轉成「臺」
     Map<String, List<String>> map = {};
     for (var row in data) {
       final city = row['縣市']?.replaceAll('台', '臺') ?? '';
@@ -94,69 +108,63 @@ class _TravelFormPageState extends State<TravelFormPage>
       }
     }
 
-    // ✅ 自訂縣市排序
-    final orderedCityList = [
-      '基隆市', '臺北市', '新北市', '桃園市', '新竹市', '新竹縣',
-      '苗栗縣', '臺中市', '彰化縣', '南投縣', '雲林縣', '嘉義市', '嘉義縣',
-      '臺南市', '高雄市', '屏東縣', '宜蘭縣', '花蓮縣', '臺東縣',
-      '澎湖縣', '金門縣', '連江縣'
-    ];
-
-    // 🔁 排序並建立新的 map（地區也排序過）
-    final sortedMap = {
-      for (var city in orderedCityList)
-        if (map.containsKey(city)) city: (map[city]!..sort())
-    };
+    map.forEach((key, value) => value.sort());
 
     setState(() {
-      cityTownMap = sortedMap;
+      cityTownMap = map;
     });
   }
-
 
   void _filterByCityTown() {
     if (selectedCity != null && selectedTown != null) {
       setState(() {
-        filteredSpots = allSpots.where((spot) =>
-            spot['Region'] == selectedCity &&
-            spot['Town'] == selectedTown).toList();
+        filteredSpots =
+            allSpots
+                .where(
+                  (spot) =>
+                      spot['Region'] == selectedCity &&
+                      spot['Town'] == selectedTown,
+                )
+                .toList();
       });
     }
+  }
+
+  void _filterByKeyword(String keyword) {
+    final kw = keyword.toLowerCase();
+    setState(() {
+      filteredSpots =
+          allSpots.where((spot) {
+            final combined =
+                [
+                  spot['Name'],
+                  spot['Add'],
+                  spot['Region'],
+                  spot['Town'],
+                ].join(' ').toLowerCase();
+            return combined.contains(kw);
+          }).toList();
+    });
   }
 
   Future<void> _loadFavorites() async {
     final prefs = await SharedPreferences.getInstance();
     final favList = prefs.getStringList('favorite_spots') ?? [];
-    final favorites = favList.map((e) => Map<String, String>.from(jsonDecode(e))).toList();
-
-    final names = favorites.map((e) => e['Name'] ?? '無名稱').toList();
-    final Map<String, List<Map<String, String>>> grouped = {};
-    for (var spot in favorites) {
-      final city = spot['Region'] ?? '未分類';
-      grouped.putIfAbsent(city, () => []).add(spot);
-    }
-
     setState(() {
-      favoriteSpotNames = List<String>.from(names);
-      favoritesByCity = grouped;
+      favoriteSpots =
+          favList.map((e) => Map<String, String>.from(jsonDecode(e))).toList();
     });
   }
 
   Future<void> _toggleFavorite(Map<String, String> spot) async {
     final prefs = await SharedPreferences.getInstance();
     final favList = prefs.getStringList('favorite_spots') ?? [];
+    final name = spot['Name'] ?? '';
 
-    final spotName = spot['Name'] ?? '無名稱';
-    bool alreadyFavorited = favList.any((e) {
-      final item = jsonDecode(e);
-      return item['Name'] == spotName;
-    });
+    final isFavorited = favList.any((e) => jsonDecode(e)['Name'] == name);
 
-    if (alreadyFavorited) {
-      favList.removeWhere((e) {
-        final item = jsonDecode(e);
-        return item['Name'] == spotName;
-      });
+    if (isFavorited) {
+      favList.removeWhere((e) => jsonDecode(e)['Name'] == name);
     } else {
       favList.add(jsonEncode(spot));
     }
@@ -165,94 +173,173 @@ class _TravelFormPageState extends State<TravelFormPage>
     _loadFavorites();
   }
 
-  void _filterByKeyword(String keyword) {
-    final kw = keyword.trim().toLowerCase();
-    if (kw.isEmpty) {
-      setState(() {
-        filteredSpots = List.from(allSpots);
-      });
+  bool _isFavorited(Map<String, String> spot) {
+    return favoriteSpots.any((s) => s['Name'] == spot['Name']);
+  }
+
+  void _showSpotDialog(Map<String, String> spot) {
+    final alreadyAdded = selectedSpots.any((s) => s['Name'] == spot['Name']);
+    final alreadyFavorited = _isFavorited(spot);
+
+    String imageUrl = '';
+    try {
+      final pictureJson = spot['Picture1'];
+      if (pictureJson != null && pictureJson.isNotEmpty) {
+        final parsed = json.decode(pictureJson);
+        imageUrl = parsed['src'] ?? '';
+      }
+    } catch (_) {
+      imageUrl = '';
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text(spot['Name'] ?? '無名稱'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if ((spot['Add'] ?? '').isNotEmpty)
+                Text("📍 ${spot['Add']}")
+              else
+                const Text("📍 無地址"),
+              const SizedBox(height: 8),
+              if (imageUrl.startsWith('http'))
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.network(
+                    imageUrl,
+                    height: 150,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                  ),
+                )
+              else
+                const Text("❌ 無圖片"),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("關閉"),
+            ),
+            TextButton(
+              onPressed: () {
+                final lat = spot['Py'];
+                final lng = spot['Px'];
+                if (lat != null && lng != null) {
+                  final url =
+                      'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng&travelmode=driving';
+                  launchUrl(
+                    Uri.parse(url),
+                    mode: LaunchMode.externalApplication,
+                  );
+                }
+              },
+              child: const Text('🧭 導航'),
+            ),
+            TextButton(
+              onPressed: () {
+                _toggleFavorite(spot);
+                Navigator.pop(context);
+              },
+              child: Text(alreadyFavorited ? '⭐ 移除收藏' : '⭐ 加入收藏'),
+            ),
+            TextButton(
+              onPressed: () {
+                setState(() {
+                  if (alreadyAdded) {
+                    selectedSpots.removeWhere((s) => s['Name'] == spot['Name']);
+                  } else {
+                    selectedSpots.add(spot);
+                  }
+                });
+                Navigator.pop(context);
+              },
+              child: Text(alreadyAdded ? '❌ 移除行程' : '✅ 加入行程'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _goToSchedulePage() {
+    if (selectedSpots.isEmpty || widget.initialData == null) {
+      print('🚫 選擇的景點為空或沒有 initialData');
       return;
     }
 
-    final keywords = kw.split(' ');
-    setState(() {
-      filteredSpots = allSpots.where((spot) {
-        final values = [
-          spot['Region'] ?? '',
-          spot['Town'] ?? '',
-          spot['Name'] ?? '',
-          spot['Description'] ?? '',
-          spot['Add'] ?? '',
-        ].join(' ').toLowerCase();
-        return keywords.every((k) => values.contains(k));
-      }).toList();
-    });
-  }
+    print('📦 initialData: ${widget.initialData}');
 
-  void _addSpot(Map<String, String> spot) {
-    if (!selectedSpots.any((s) => s['Name'] == spot['Name'])) {
-      setState(() {
-        selectedSpots.add(spot);
-      });
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("景點已經加入行程囉！")),
-      );
+    final startStr = widget.initialData!['start_date'];
+    final endStr = widget.initialData!['end_date'];
+
+    if (startStr == null || endStr == null) {
+      print('❗ start_date 或 end_date 為 null');
+      return;
     }
-  }
 
+    final startDate = DateFormat('yyyy-MM-dd').parse(startStr);
+    final endDate = DateFormat('yyyy-MM-dd').parse(endStr);
 
-  void _removeSpot(int index) {
-    setState(() {
-      selectedSpots.removeAt(index);
-    });
-  }
-
-  void _goToSchedulePage() async {
-    final result = await Navigator.push(
+    Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => TravelSchedulePage(
-          selectedSpots: selectedSpots,
-          initialTripData: widget.initialData,
-        ),
+        builder:
+            (_) => TravelSchedulePage(
+              selectedSpots: selectedSpots,
+              startDate: startDate,
+              endDate: endDate,
+            ),
       ),
     );
-
-    if (result != null && result is Map<String, dynamic> && result['success'] == true) {
-      Navigator.pop(context, {
-        'dayIndex': widget.dayIndex,
-        'updatedSpots': List<Map<String, String>>.from(result['updatedSpots'] ?? []),
-        'transports': List<String>.from(result['transports'] ?? []),
-        'success': true,
-      });
-    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final markers =
+        filteredSpots
+            .map((spot) {
+              final lat = double.tryParse(spot['Py'] ?? '');
+              final lng = double.tryParse(spot['Px'] ?? '');
+              if (lat == null || lng == null) return null;
+
+              return Marker(
+                markerId: MarkerId(spot['Name'] ?? '無名'),
+                position: LatLng(lat, lng),
+                onTap: () => _showSpotDialog(spot),
+                infoWindow: InfoWindow(
+                  title: spot['Name'],
+                  snippet: spot['Add'] ?? '',
+                ),
+              );
+            })
+            .whereType<Marker>()
+            .toSet();
+
     return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.browseOnly ? '找景點與收藏' : '選擇 Day ${widget.dayIndex + 1} 景點'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pop(context),
-        ),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            Row(
+      appBar: AppBar(title: const Text('探索地圖')),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
               children: [
                 Expanded(
                   child: DropdownButton<String>(
                     isExpanded: true,
                     hint: const Text("選擇縣市"),
                     value: selectedCity,
-                    items: cityTownMap.keys.map((city) {
-                      return DropdownMenuItem(value: city, child: Text(city));
-                    }).toList(),
+                    items:
+                        cityTownMap.keys.map((city) {
+                          return DropdownMenuItem(
+                            value: city,
+                            child: Text(city),
+                          );
+                        }).toList(),
                     onChanged: (city) {
                       setState(() {
                         selectedCity = city;
@@ -262,17 +349,21 @@ class _TravelFormPageState extends State<TravelFormPage>
                     },
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 10),
                 Expanded(
                   child: DropdownButton<String>(
                     isExpanded: true,
-                    hint: const Text("選擇地區"),
+                    hint: const Text("選擇鄉鎮市區"),
                     value: selectedTown,
-                    items: selectedCity == null
-                        ? []
-                        : cityTownMap[selectedCity]!.map((town) {
-                            return DropdownMenuItem(value: town, child: Text(town));
-                          }).toList(),
+                    items:
+                        selectedCity == null
+                            ? []
+                            : cityTownMap[selectedCity]!.map((town) {
+                              return DropdownMenuItem(
+                                value: town,
+                                child: Text(town),
+                              );
+                            }).toList(),
                     onChanged: (town) {
                       setState(() {
                         selectedTown = town;
@@ -283,41 +374,37 @@ class _TravelFormPageState extends State<TravelFormPage>
                 ),
               ],
             ),
-            TextField(
-              controller: _cityController,
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: TextField(
               decoration: const InputDecoration(
-                labelText: '輸入關鍵字搜尋景點',
+                hintText: '輸入關鍵字搜尋景點',
                 prefixIcon: Icon(Icons.search),
               ),
+              onChanged: _filterByKeyword,
             ),
-            const SizedBox(height: 12),
-            Expanded(
-              child: Column(
-                children: [
-                  TabBar(
-                    controller: _tabController,
-                    tabs: const [
-                      Tab(text: '所有景點'),
-                      Tab(text: '我的收藏'),
-                    ],
-                  ),
-                  Expanded(
-                    child: TabBarView(
-                      controller: _tabController,
-                      children: [
-                        _buildSpotList(filteredSpots),
-                        _buildFavoritesGroupedByCity(),
-                      ],
-                    ),
-                  ),
-                ],
+          ),
+          const SizedBox(height: 8),
+          if (filteredSpots.isNotEmpty)
+            SizedBox(
+              height: MediaQuery.of(context).size.height / 3,
+              child: GoogleMap(
+                initialCameraPosition: CameraPosition(
+                  target: currentLocation ?? const LatLng(25.0330, 121.5654),
+                  zoom: 11,
+                ),
+                markers: markers,
+                myLocationEnabled: true,
+                myLocationButtonEnabled: true,
+                zoomControlsEnabled: true,
               ),
             ),
-            if (!widget.browseOnly) ...[
-              const Divider(),
-              const Text('🧳 已選擇的行程：', style: TextStyle(fontWeight: FontWeight.bold)),
-              SizedBox(
-                height: 100,
+          if (selectedSpots.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+              child: SizedBox(
+                height: 80,
                 child: ListView.builder(
                   scrollDirection: Axis.horizontal,
                   itemCount: selectedSpots.length,
@@ -325,146 +412,52 @@ class _TravelFormPageState extends State<TravelFormPage>
                     final spot = selectedSpots[index];
                     return Container(
                       margin: const EdgeInsets.only(right: 8),
-                      padding: const EdgeInsets.all(8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.blue.shade100,
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(10),
                       ),
                       child: Row(
                         children: [
                           Text(spot['Name'] ?? '無名稱'),
-                          IconButton(
-                            icon: const Icon(Icons.delete, size: 18, color: Colors.red),
-                            onPressed: () => _removeSpot(index),
-                          )
+                          const SizedBox(width: 6),
+                          GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                selectedSpots.removeAt(index);
+                              });
+                            },
+                            child: const Icon(
+                              Icons.delete,
+                              size: 18,
+                              color: Colors.red,
+                            ),
+                          ),
                         ],
                       ),
                     );
                   },
                 ),
               ),
-              const SizedBox(height: 12),
-              ElevatedButton.icon(
+            ),
+          if (selectedSpots.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: ElevatedButton.icon(
                 onPressed: _goToSchedulePage,
-                icon: const Icon(Icons.check),
-                label: const Text('完成，下一步'),
+                icon: const Icon(Icons.calendar_today),
+                label: const Text('排入行程表'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  minimumSize: const Size(double.infinity, 48),
+                ),
               ),
-            ]
-          ],
-        ),
+            ),
+        ],
       ),
-    );
-  }
-
-  Widget _buildSpotList(List<Map<String, String>> spots) {
-    return ListView.builder(
-      itemCount: spots.length,
-      itemBuilder: (context, index) {
-        final spot = spots[index];
-        final name = spot['Name'] ?? '無名稱';
-        final address = spot['Add'] ?? '';
-        final isFavorite = favoriteSpotNames.contains(name);
-
-        return Card(
-          child: ListTile(
-            onTap: () => _showSpotDetail(spot),
-            title: Text(name),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('${spot['Region'] ?? ''} ${spot['Town'] ?? ''}'),
-                if (address.isNotEmpty)
-                  Text('📍 $address', style: const TextStyle(color: Colors.black54)),
-              ],
-            ),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                IconButton(
-                  icon: Icon(isFavorite ? Icons.star : Icons.star_border, color: Colors.amber),
-                  onPressed: () => _toggleFavorite(spot),
-                ),
-                if (!widget.browseOnly)
-                  IconButton(
-                    icon: const Icon(Icons.add_circle, color: Colors.green),
-                    onPressed: () => _addSpot(spot),
-                  ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildFavoritesGroupedByCity() {
-    if (favoritesByCity.isEmpty) {
-      return const Center(child: Text('目前沒有收藏的景點'));
-    }
-
-    return ListView(
-      children: favoritesByCity.entries.map((entry) {
-        final city = entry.key;
-        final spots = entry.value;
-        return ExpansionTile(
-          title: Text(city, style: const TextStyle(fontWeight: FontWeight.bold)),
-          children: spots.map((spot) {
-            selectedSpots.any((s) => s['Name'] == spot['Name']);
-            return ListTile(
-              title: Text(spot['Name'] ?? '無名稱'),
-              subtitle: Text(spot['Add'] ?? '無地址'),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.delete, color: Colors.red),
-                    onPressed: () => _toggleFavorite(spot),
-                  ),
-                  if (!widget.browseOnly)
-                    IconButton(
-                      icon: const Icon(Icons.add_circle, color: Colors.green),
-                      onPressed: () => _addSpot(spot),
-                    ),
-                ],
-              ),
-              onTap: () => _showSpotDetail(spot),
-            );
-          }).toList(),
-        );
-      }).toList(),
-    );
-  }
-
-
-  void _showSpotDetail(Map<String, String> spot) {
-    final name = spot['Name'] ?? '無名稱';
-    final address = spot['Add'] ?? '';
-    final desc = spot['Description'] ?? '';
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: Text(name),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (desc.isNotEmpty) Text("📖 $desc"),
-              if (address.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8.0),
-                  child: Text("📍 地址：$address"),
-                ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text("關閉"),
-            )
-          ],
-        );
-      },
     );
   }
 }

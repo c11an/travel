@@ -35,7 +35,7 @@ class _MyJournalTabState extends State<MyJournalTab> {
 
   void _editNoteDialog(int index) {
     final trip = trips[index];
-    final TextEditingController _noteController =
+    final TextEditingController noteController =
         TextEditingController(text: trip["note"] ?? "");
 
     showDialog(
@@ -43,7 +43,7 @@ class _MyJournalTabState extends State<MyJournalTab> {
       builder: (_) => AlertDialog(
         title: const Text("撰寫心得"),
         content: TextField(
-          controller: _noteController,
+          controller: noteController,
           maxLines: 4,
           decoration: const InputDecoration(hintText: "輸入旅遊心得..."),
         ),
@@ -55,7 +55,7 @@ class _MyJournalTabState extends State<MyJournalTab> {
           TextButton(
             onPressed: () {
               setState(() {
-                trips[index]["note"] = _noteController.text;
+                trips[index]["note"] = noteController.text;
               });
               _saveTripsToStorage();
               Navigator.pop(context);

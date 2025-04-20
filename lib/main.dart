@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:travel/home.dart';
-//import 'travel_input_page.dart'; 
+//import 'travel_input_page.dart';
 
 void main() {
   runApp(const MyApp());
@@ -17,7 +17,7 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
         useMaterial3: true,
       ),
-      home: const HomePage(), // ✅ 開啟後從主頁開始
+      home: HomePage(), // ✅ 開啟後從主頁開始
     );
   }
 }
