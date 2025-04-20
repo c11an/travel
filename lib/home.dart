@@ -62,18 +62,20 @@ class _HomePageState extends State<HomePage> {
   void _showOptionsDialog(String title, Map<String, String> options) {
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
-        title: Text(title),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: options.entries.map((entry) {
-            return ListTile(
-              title: Text(entry.key),
-              onTap: () => _launchURL(entry.value),
-            );
-          }).toList(),
-        ),
-      ),
+      builder:
+          (_) => AlertDialog(
+            title: Text(title),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children:
+                  options.entries.map((entry) {
+                    return ListTile(
+                      title: Text(entry.key),
+                      onTap: () => _launchURL(entry.value),
+                    );
+                  }).toList(),
+            ),
+          ),
     );
   }
 
@@ -113,10 +115,9 @@ class _HomePageState extends State<HomePage> {
               child: PageView.builder(
                 controller: _pageController,
                 itemCount: _images.length,
-                itemBuilder: (_, index) => Image.asset(
-                  _images[index],
-                  fit: BoxFit.cover,
-                ),
+                itemBuilder:
+                    (_, index) =>
+                        Image.asset(_images[index], fit: BoxFit.cover),
               ),
             ),
           ),
@@ -150,7 +151,9 @@ class _HomePageState extends State<HomePage> {
           Row(
             children: [
               _buildServiceButton("機票", Icons.flight_takeoff, () {
-                _launchURL("https://flight.eztravel.com.tw/?utm_source=google&utm_medium=ad_sem&AllianceID=201&SID=1&ouid=11811814559&gad_source=1&gbraid=0AAAAAC2qCl8DsS8YqH7xiUfYSaf94UAuI&gclid=CjwKCAjw8IfABhBXEiwAxRHlsGGYSGdalPC4ukq8y22KlnAM6_OKRDANOSwGAXLDJ6s3ZmiduAbpmxoCe7AQAvD_BwE");
+                _launchURL(
+                  "https://flight.eztravel.com.tw/?utm_source=google&utm_medium=ad_sem&AllianceID=201&SID=1&ouid=11811814559&gad_source=1&gbraid=0AAAAAC2qCl8DsS8YqH7xiUfYSaf94UAuI&gclid=CjwKCAjw8IfABhBXEiwAxRHlsGGYSGdalPC4ukq8y22KlnAM6_OKRDANOSwGAXLDJ6s3ZmiduAbpmxoCe7AQAvD_BwE",
+                );
               }),
               _buildServiceButton("", Icons.sim_card, () {
                 _launchURL("https://yoyogoshop.com/");
@@ -168,7 +171,10 @@ class _HomePageState extends State<HomePage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('🗂 我的旅遊規劃', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const Text(
+                  '🗂 我的旅遊規劃',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
                 const SizedBox(height: 10),
                 const Text('目前沒有旅遊規劃紀錄', style: TextStyle(color: Colors.grey)),
                 const SizedBox(height: 10),
@@ -187,7 +193,7 @@ class _HomePageState extends State<HomePage> {
   Widget _buildTravelPlanPage() => const TravelInputPage();
   Widget _buildProfilePage() => const ProfilePage();
   Widget _buildJournalPage() => const JournalPage();
-  Widget _buildExplorePage() => const TravelFormPage(dayIndex: 0, browseOnly: true);
+  Widget _buildExplorePage() => TravelFormPage(dayIndex: 0, browseOnly: true);
 
   @override
   Widget build(BuildContext context) {
