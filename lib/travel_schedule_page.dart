@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'dart:math';
-import 'package:intl/intl.dart';
 
 class TravelSchedulePage extends StatefulWidget {
   final List<Map<String, String>> selectedSpots;
