@@ -41,7 +41,7 @@ class _TravelFormPageState extends State<TravelFormPage> {
   void initState() {
     super.initState();
     _loadSpots();
-    _loadCountyData();
+    _loadCountryData();
     _getUserLocation();
     _loadFavorites();
   }
@@ -86,34 +86,57 @@ class _TravelFormPageState extends State<TravelFormPage> {
     });
   }
 
-  Future<void> _loadCountyData() async {
+  Future<void> _loadCountryData() async {
     final raw = await rootBundle.loadString('assets/data/country.csv');
     final rows = const CsvToListConverter().convert(raw);
     final headers = rows.first.map((e) => e.toString()).toList();
-    final data =
-        rows.skip(1).map((row) {
-          return Map<String, String>.fromIterables(
-            headers,
-            row.map((e) => e.toString()),
-          );
-        }).toList();
+    final data = rows.skip(1).map((row) {
+      return Map<String, String>.fromIterables(
+        headers,
+        row.map((e) => e.toString()),
+      );
+    });
 
-    Map<String, List<String>> map = {};
+    final Map<String, List<String>> result = {};
     for (var row in data) {
       final city = row['縣市']?.replaceAll('台', '臺') ?? '';
       final town = row['鄉鎮市']?.replaceAll('台', '臺') ?? '';
-      map.putIfAbsent(city, () => []);
-      if (!map[city]!.contains(town)) {
-        map[city]!.add(town);
+
+      if (city.isEmpty || town.isEmpty) continue;
+
+      result.putIfAbsent(city, () => []);
+      if (!result[city]!.contains(town)) {
+        result[city]!.add(town);
       }
     }
 
-    map.forEach((key, value) => value.sort());
+    // ✅ 台灣縣市的自訂順序
+    final List<String> taiwanCityOrder = [
+      "基隆市", "臺北市", "新北市", "桃園市", "新竹市", "新竹縣",
+      "苗栗縣", "臺中市", "彰化縣", "南投縣",
+      "雲林縣", "嘉義市", "嘉義縣", "臺南市", "高雄市", "屏東縣",
+      "宜蘭縣", "花蓮縣", "臺東縣",
+      "澎湖縣", "金門縣", "連江縣"
+    ];
+
+    // 鄉鎮排序
+    result.forEach((city, towns) => towns.sort());
+
+    // 依照自訂順序排序城市
+    final Map<String, List<String>> sortedResult = {};
+    for (var city in taiwanCityOrder) {
+      if (result.containsKey(city)) {
+        sortedResult[city] = result[city]!;
+      }
+    }
 
     setState(() {
-      cityTownMap = map;
+      cityTownMap = sortedResult;
     });
   }
+
+
+
 
   void _filterByCityTown() {
     if (selectedCity != null && selectedTown != null) {

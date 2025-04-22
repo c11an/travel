@@ -66,20 +66,49 @@ class _HomePageState extends State<HomePage> {
 
     final Map<String, List<String>> result = {};
     for (var row in data) {
-      final city = row['縣市'] ?? '';
-      final town = row['鄉鎮市'] ?? '';
+      final city = row['縣市']?.replaceAll('台', '臺') ?? '';
+      final town = row['鄉鎮市']?.replaceAll('台', '臺') ?? '';
+
+      if (city.isEmpty || town.isEmpty) continue;
+
       result.putIfAbsent(city, () => []);
       if (!result[city]!.contains(town)) {
         result[city]!.add(town);
       }
     }
 
-    result.forEach((key, value) => value.sort());
+    // ✅ 台灣縣市的自訂順序
+    final List<String> taiwanCityOrder = [
+      "基隆市", "臺北市", "新北市", "桃園市", "新竹市", "新竹縣",
+      "苗栗縣", "臺中市", "彰化縣", "南投縣",
+      "雲林縣", "嘉義市", "嘉義縣", "臺南市", "高雄市", "屏東縣",
+      "宜蘭縣", "花蓮縣", "臺東縣",
+      "澎湖縣", "金門縣", "連江縣"
+    ];
+
+    // 鄉鎮排序
+    result.forEach((city, towns) {
+      towns.sort();
+      towns.insert(0, ""); // 加入空白地區表示所有地區
+    });
+
+    // 依照自訂順序排序城市
+    final Map<String, List<String>> sortedResult = {};
+    for (var city in taiwanCityOrder) {
+      if (result.containsKey(city)) {
+        sortedResult[city] = result[city]!;
+      }
+    }
 
     setState(() {
-      cityTownMap = result;
+      // 插入「所有」選項在最前
+      final Map<String, List<String>> finalMap = {"所有": []};
+      finalMap.addAll(sortedResult); // 加入原本排序好的縣市資料
+      cityTownMap = finalMap;
     });
+
   }
+
 
   void _onItemTapped(int index) {
     setState(() {
@@ -276,9 +305,9 @@ class _HomePageState extends State<HomePage> {
                     isExpanded: true,
                     hint: const Text("選擇縣市"),
                     value: tempCity,
-                    items: cityTownMap.keys
-                        .map((city) => DropdownMenuItem(value: city, child: Text(city)))
-                        .toList(),
+                    items: cityTownMap.keys.map((city) {
+                      return DropdownMenuItem(value: city, child: Text(city));
+                    }).toList(),
                     onChanged: (val) {
                       setInnerState(() {
                         tempCity = val;
@@ -286,23 +315,27 @@ class _HomePageState extends State<HomePage> {
                       });
                     },
                   ),
-                  DropdownButton<String>(
-                    isExpanded: true,
-                    hint: const Text("選擇地區"),
-                    value: tempTown,
-                    items: (cityTownMap[tempCity] ?? [])
-                        .map((town) => DropdownMenuItem(value: town, child: Text(town)))
-                        .toList(),
-                    onChanged: (val) {
-                      setInnerState(() {
-                        tempTown = val;
-                      });
-                    },
-                  ),
+                  if (tempCity != "所有")
+                    DropdownButton<String>(
+                      isExpanded: true,
+                      hint: const Text("選擇地區"),
+                      value: tempTown,
+                      items: (cityTownMap[tempCity] ?? []).map((town) {
+                        return DropdownMenuItem(value: town, child: Text(town));
+                      }).toList(),
+                      onChanged: (val) {
+                        setInnerState(() {
+                          tempTown = val;
+                        });
+                      },
+                    ),
                 ],
               ),
               actions: [
-                TextButton(onPressed: () => Navigator.pop(context), child: const Text("取消")),
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text("取消"),
+                ),
                 TextButton(
                   onPressed: () {
                     setState(() {
@@ -322,12 +355,17 @@ class _HomePageState extends State<HomePage> {
   }
 
 
+
   void _showCategoryDialog(BuildContext context) {
     showDialog(
       context: context,
       builder: (_) => SimpleDialog(
         title: const Text("選擇類別"),
         children: [
+          ListTile(
+            title: const Text("不限"),
+            onTap: () => _selectCategory("不限"),
+          ),
           ListTile(
             title: const Text("景點"),
             onTap: () => _selectCategory("景點"),
@@ -344,6 +382,7 @@ class _HomePageState extends State<HomePage> {
       ),
     );
   }
+
 
   void _selectCategory(String category) {
     setState(() {
