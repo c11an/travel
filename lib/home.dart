@@ -78,11 +78,28 @@ class _HomePageState extends State<HomePage> {
 
     // ✅ 台灣縣市的自訂順序
     final List<String> taiwanCityOrder = [
-      "基隆市", "臺北市", "新北市", "桃園市", "新竹市", "新竹縣",
-      "苗栗縣", "臺中市", "彰化縣", "南投縣",
-      "雲林縣", "嘉義市", "嘉義縣", "臺南市", "高雄市", "屏東縣",
-      "宜蘭縣", "花蓮縣", "臺東縣",
-      "澎湖縣", "金門縣", "連江縣"
+      "基隆市",
+      "臺北市",
+      "新北市",
+      "桃園市",
+      "新竹市",
+      "新竹縣",
+      "苗栗縣",
+      "臺中市",
+      "彰化縣",
+      "南投縣",
+      "雲林縣",
+      "嘉義市",
+      "嘉義縣",
+      "臺南市",
+      "高雄市",
+      "屏東縣",
+      "宜蘭縣",
+      "花蓮縣",
+      "臺東縣",
+      "澎湖縣",
+      "金門縣",
+      "連江縣",
     ];
 
     // 鄉鎮排序
@@ -105,9 +122,7 @@ class _HomePageState extends State<HomePage> {
       finalMap.addAll(sortedResult); // 加入原本排序好的縣市資料
       cityTownMap = finalMap;
     });
-
   }
-
 
   void _onItemTapped(int index) {
     setState(() {
@@ -124,7 +139,11 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
-  Widget _buildFeatureButton(String label, IconData icon, VoidCallback onPressed) {
+  Widget _buildFeatureButton(
+    String label,
+    IconData icon,
+    VoidCallback onPressed,
+  ) {
     return Expanded(
       child: Padding(
         padding: const EdgeInsets.all(4),
@@ -135,7 +154,9 @@ class _HomePageState extends State<HomePage> {
             foregroundColor: Colors.black,
             elevation: 2,
             padding: const EdgeInsets.symmetric(vertical: 16),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
           ),
           child: Column(
             children: [
@@ -149,6 +170,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  //-------------主頁界面------------//
   Widget _buildHomePage() {
     return SingleChildScrollView(
       child: Padding(
@@ -165,16 +187,18 @@ class _HomePageState extends State<HomePage> {
                 child: PageView.builder(
                   controller: _pageController,
                   itemCount: _images.length,
-                  itemBuilder: (_, index) => Image.asset(
-                    _images[index],
-                    fit: BoxFit.cover,
-                  ),
+                  itemBuilder:
+                      (_, index) =>
+                          Image.asset(_images[index], fit: BoxFit.cover),
                 ),
               ),
             ),
             const SizedBox(height: 24),
 
-            const Text("Trip Tok", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+            const Text(
+              "Trip Tok",
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 24),
 
             // 功能按鈕
@@ -214,10 +238,18 @@ class _HomePageState extends State<HomePage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('🗂 開始我的旅遊行程！',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    const Text(
+                      '🗂 開始我的旅遊行程！',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                     const SizedBox(height: 10),
-                    const Text('目前沒有旅遊規劃紀錄', style: TextStyle(color: Colors.grey)),
+                    const Text(
+                      '目前沒有旅遊規劃紀錄',
+                      style: TextStyle(color: Colors.grey),
+                    ),
                     const SizedBox(height: 10),
                     ElevatedButton(
                       onPressed: () => _onItemTapped(2),
@@ -243,8 +275,13 @@ class _HomePageState extends State<HomePage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: const [
-                    Text('🔥 推薦行程',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    Text(
+                      '🔥 推薦行程',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                     SizedBox(height: 10),
                     Text('目前沒有推薦內容，敬請期待', style: TextStyle(color: Colors.grey)),
                   ],
@@ -264,12 +301,17 @@ class _HomePageState extends State<HomePage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('📊 榜單查詢', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const Text(
+                    '📊 榜單查詢',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
                   const SizedBox(height: 10),
                   // 地點選單
                   ElevatedButton(
                     onPressed: () => _showLocationDialog(context),
-                    child: Text("地點：${selectedCity ?? "未選擇"} ${selectedTown ?? ""}"),
+                    child: Text(
+                      "地點：${selectedCity ?? "未選擇"} ${selectedTown ?? ""}",
+                    ),
                   ),
                   const SizedBox(height: 10),
                   // 類別選單
@@ -286,6 +328,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  //----------------//
   void _showLocationDialog(BuildContext context) {
     String? tempCity = selectedCity;
     String? tempTown = selectedTown;
@@ -304,9 +347,13 @@ class _HomePageState extends State<HomePage> {
                     isExpanded: true,
                     hint: const Text("選擇縣市"),
                     value: tempCity,
-                    items: cityTownMap.keys.map((city) {
-                      return DropdownMenuItem(value: city, child: Text(city));
-                    }).toList(),
+                    items:
+                        cityTownMap.keys.map((city) {
+                          return DropdownMenuItem(
+                            value: city,
+                            child: Text(city),
+                          );
+                        }).toList(),
                     onChanged: (val) {
                       setInnerState(() {
                         tempCity = val;
@@ -319,9 +366,13 @@ class _HomePageState extends State<HomePage> {
                       isExpanded: true,
                       hint: const Text("選擇地區"),
                       value: tempTown,
-                      items: (cityTownMap[tempCity] ?? []).map((town) {
-                        return DropdownMenuItem(value: town, child: Text(town));
-                      }).toList(),
+                      items:
+                          (cityTownMap[tempCity] ?? []).map((town) {
+                            return DropdownMenuItem(
+                              value: town,
+                              child: Text(town),
+                            );
+                          }).toList(),
                       onChanged: (val) {
                         setInnerState(() {
                           tempTown = val;
@@ -353,35 +404,33 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-
-
   void _showCategoryDialog(BuildContext context) {
     showDialog(
       context: context,
-      builder: (_) => SimpleDialog(
-        title: const Text("選擇類別"),
-        children: [
-          ListTile(
-            title: const Text("不限"),
-            onTap: () => _selectCategory("不限"),
+      builder:
+          (_) => SimpleDialog(
+            title: const Text("選擇類別"),
+            children: [
+              ListTile(
+                title: const Text("不限"),
+                onTap: () => _selectCategory("不限"),
+              ),
+              ListTile(
+                title: const Text("景點"),
+                onTap: () => _selectCategory("景點"),
+              ),
+              ListTile(
+                title: const Text("美食"),
+                onTap: () => _selectCategory("美食"),
+              ),
+              ListTile(
+                title: const Text("住宿"),
+                onTap: () => _selectCategory("住宿"),
+              ),
+            ],
           ),
-          ListTile(
-            title: const Text("景點"),
-            onTap: () => _selectCategory("景點"),
-          ),
-          ListTile(
-            title: const Text("美食"),
-            onTap: () => _selectCategory("美食"),
-          ),
-          ListTile(
-            title: const Text("住宿"),
-            onTap: () => _selectCategory("住宿"),
-          ),
-        ],
-      ),
     );
   }
-
 
   void _selectCategory(String category) {
     setState(() {
@@ -393,7 +442,8 @@ class _HomePageState extends State<HomePage> {
   Widget _buildTravelPlanPage() => const TravelInputPage();
   Widget _buildProfilePage() => const ProfilePage();
   Widget _buildJournalPage() => const JournalPage();
-  Widget _buildExplorePage() => const TravelFormPage(dayIndex: 0, browseOnly: true);
+  Widget _buildExplorePage() =>
+      const TravelFormPage(dayIndex: 0, browseOnly: true);
 
   @override
   Widget build(BuildContext context) {
