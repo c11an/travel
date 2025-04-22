@@ -14,12 +14,12 @@ class TravelFormPage extends StatefulWidget {
   final bool browseOnly;
   final Map<String, dynamic>? initialData;
 
-  TravelFormPage({
-    Key? key,
+  const TravelFormPage({
+    super.key,
     this.dayIndex = 0,
     this.browseOnly = false,
     this.initialData,
-  }) : super(key: key);
+  });
 
   @override
   State<TravelFormPage> createState() => _TravelFormPageState();

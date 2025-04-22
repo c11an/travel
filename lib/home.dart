@@ -17,32 +17,32 @@ class _HomePageState extends State<HomePage> {
   int _currentPage = 0;
   final PageController _pageController = PageController();
 
-  final List<String> _images = [
-    'assets/images/jiufen.jpg',
-    'assets/images/SunSet.jpg',
-    'assets/images/Alishan.jpg',
-  ];
+  // final List<String> _images = [
+  //   'assets/images/jiufen.jpg',
+  //   'assets/images/SunSet.jpg',
+  //   'assets/images/Alishan.jpg',
+  // ];
 
   @override
   void initState() {
     super.initState();
-    _startAutoSlide();
+  //  _startAutoSlide();
   }
 
-  void _startAutoSlide() {
-    Future.delayed(const Duration(seconds: 3), () {
-      if (!mounted) return;
-      setState(() {
-        _currentPage = (_currentPage + 1) % _images.length;
-        _pageController.animateToPage(
-          _currentPage,
-          duration: const Duration(milliseconds: 500),
-          curve: Curves.easeInOut,
-        );
-      });
-      _startAutoSlide();
-    });
-  }
+  // void _startAutoSlide() {
+  //   Future.delayed(const Duration(seconds: 3), () {
+  //     if (!mounted) return;
+  //     setState(() {
+  //       _currentPage = (_currentPage + 1) % _images.length;
+  //       _pageController.animateToPage(
+  //         _currentPage,
+  //         duration: const Duration(milliseconds: 500),
+  //         curve: Curves.easeInOut,
+  //       );
+  //     });
+  //     _startAutoSlide();
+  //   });
+  // }
 
   void _onItemTapped(int index) {
     setState(() {
@@ -107,21 +107,21 @@ class _HomePageState extends State<HomePage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // 輪播圖加回來
-          ClipRRect(
-            borderRadius: BorderRadius.circular(15),
-            child: SizedBox(
-              height: 180,
-              width: double.infinity,
-              child: PageView.builder(
-                controller: _pageController,
-                itemCount: _images.length,
-                itemBuilder:
-                    (_, index) =>
-                        Image.asset(_images[index], fit: BoxFit.cover),
-              ),
-            ),
-          ),
-          const SizedBox(height: 20),
+          // ClipRRect(
+          //   borderRadius: BorderRadius.circular(15),
+          //   child: SizedBox(
+          //     height: 180,
+          //     width: double.infinity,
+          //     child: PageView.builder(
+          //       controller: _pageController,
+          //       itemCount: _images.length,
+          //       itemBuilder:
+          //           (_, index) =>
+          //               Image.asset(_images[index], fit: BoxFit.cover),
+          //     ),
+          //   ),
+          // ),
+          // const SizedBox(height: 20),
 
           const Text(
             "Trip Tok",
