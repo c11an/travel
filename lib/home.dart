@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:travel/ai_recommend_page.dart';
 import 'package:travel/journal_page.dart';
 import 'package:travel/profile_page.dart';
 import 'package:travel/travel_form_page.dart';
@@ -548,6 +549,42 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
             ),
+
+            // 🔥 推薦行程
+            Align(
+              alignment: Alignment.center,
+              child: GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const AIRecommendPage()),
+                  );
+                },
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFE0B2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: const [
+                      Text(
+                        '🔥 AI推薦行程',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      SizedBox(height: 10),
+                      Text('點我開始推薦行程吧！', style: TextStyle(color: Colors.grey)),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
             const SizedBox(height: 20),
           ],
         ),

@@ -4,7 +4,6 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:travel/home.dart';
 import 'dart:convert';
-import 'main.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
