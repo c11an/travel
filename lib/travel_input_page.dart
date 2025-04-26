@@ -151,55 +151,41 @@ class _TravelInputPageState extends State<TravelInputPage> {
   }
 
   void _addTrip() async {
-    // Step 1：先填寫基本資料（info）
     final infoResult = await Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const TravelInfoInputPage()),
     );
 
-    if (infoResult != null && infoResult is Map<String, dynamic>) {
-      // Step 2：接著跳到探索地圖選景點（browseOnly: false）
-      final selectedSpotsResult = await Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => TravelFormPage(browseOnly: false), // ✅ 這裡一定要 false
-        ),
-      );
+    if (infoResult == null || infoResult is! Map<String, dynamic>) {
+      return; // 取消
+    }
 
-      if (selectedSpotsResult != null &&
-          selectedSpotsResult is List<Map<String, String>>) {
-        // Step 3：帶著選到的景點，去排每日行程
-        final scheduleResult = await Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder:
-                (_) => TravelSchedulePage(
-                  selectedSpots: selectedSpotsResult,
-                  startDate: DateTime.parse(infoResult['start_date']),
-                  endDate: DateTime.parse(infoResult['end_date']),
-                  selectedDayIndex: 0,
-                ),
-          ),
-        );
+    final startDate = DateTime.parse(infoResult['start_date']);
+    final endDate = DateTime.parse(infoResult['end_date']);
 
-        if (scheduleResult != null && scheduleResult is Map<String, dynamic>) {
-          // Step 4：最後存成完整 trip
-          final tripData = {
-            'trip_name': infoResult['trip_name'],
-            'start_date': infoResult['start_date'],
-            'end_date': infoResult['end_date'],
-            'budget': infoResult['budget'],
-            'transport': infoResult['transport'],
-            'trip_type': infoResult['trip_type'],
-            'daily_spots': scheduleResult['daily_spots'],
-            'daily_transports': scheduleResult['daily_transports'],
-          };
-          setState(() {
-            trips.add(tripData);
-          });
-          _saveTripsToStorage();
-        }
-      }
+    // ✅ 直接跳到 TravelDayPage 編輯行程，每天可以探索景點
+    final tripResult = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder:
+            (_) => TravelDayPage(
+              tripName: infoResult['trip_name'],
+              startDate: startDate,
+              endDate: endDate,
+              budget: infoResult['budget'],
+              transport: infoResult['transport'],
+              initialSpots: [],
+              initialTransports: [],
+              readOnly: false,
+            ),
+      ),
+    );
+
+    if (tripResult != null && tripResult is Map<String, dynamic>) {
+      setState(() {
+        trips.add(tripResult);
+      });
+      _saveTripsToStorage();
     }
   }
 
