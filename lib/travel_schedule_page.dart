@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'dart:math';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class TravelSchedulePage extends StatefulWidget {
   final List<Map<String, String>> selectedSpots;
   final DateTime startDate;
   final DateTime endDate;
-  final int selectedDayIndex; // 👈 多加這個，代表選哪一天！
+  final int selectedDayIndex;
 
   const TravelSchedulePage({
     super.key,
@@ -17,6 +19,42 @@ class TravelSchedulePage extends StatefulWidget {
 
   @override
   State<TravelSchedulePage> createState() => _TravelSchedulePageState();
+}
+
+const String googleApiKey = '你的GoogleApiKey'; // 🔥要換成你自己的
+
+Future<double?> getDrivingDistance(
+  double fromLat,
+  double fromLng,
+  double toLat,
+  double toLng,
+) async {
+  final url = Uri.parse(
+    'https://maps.googleapis.com/maps/api/directions/json'
+    '?origin=$fromLat,$fromLng'
+    '&destination=$toLat,$toLng'
+    '&mode=driving'
+    '&key=$googleApiKey',
+  );
+
+  try {
+    final response = await http.get(url);
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      final routes = data['routes'] as List;
+      if (routes.isNotEmpty) {
+        final legs = routes[0]['legs'] as List;
+        if (legs.isNotEmpty) {
+          final distanceMeters = legs[0]['distance']['value'] as int;
+          return distanceMeters / 1000.0;
+        }
+      }
+    }
+    return null;
+  } catch (e) {
+    print('取得路線距離失敗：$e');
+    return null;
+  }
 }
 
 class _TravelSchedulePageState extends State<TravelSchedulePage>
@@ -32,7 +70,6 @@ class _TravelSchedulePageState extends State<TravelSchedulePage>
     tripDays = widget.endDate.difference(widget.startDate).inDays + 1;
     dailySpots = {for (int i = 0; i < tripDays; i++) i: []};
 
-    // ✅ 這裡改！直接塞到指定 day
     if (widget.selectedSpots.isNotEmpty) {
       dailySpots[widget.selectedDayIndex]?.addAll(widget.selectedSpots);
     }
@@ -143,6 +180,15 @@ class _TravelSchedulePageState extends State<TravelSchedulePage>
                       horizontal: 12,
                     ),
                     child: ListTile(
+                      leading: IconButton(
+                        icon: const Icon(Icons.delete, color: Colors.red),
+                        onPressed: () {
+                          setState(() {
+                            spots.removeAt(index);
+                            _generateTransports();
+                          });
+                        },
+                      ),
                       title: Text(spot['Name'] ?? '無名稱'),
                       subtitle: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
