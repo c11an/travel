@@ -518,7 +518,10 @@ class _TravelFormPageState extends State<TravelFormPage> {
         onPressed:
             selectedSpots.isNotEmpty
                 ? () {
-                  Navigator.pop(context, selectedSpots); // ✅ 把選到的景點直接傳回去
+                  Navigator.pop(context, {
+                    'selectedSpots': selectedSpots,
+                    'dayIndex': widget.dayIndex,
+                  });
                 }
                 : null,
         icon: const Icon(Icons.check),
