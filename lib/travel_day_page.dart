@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'travel_form_page.dart';
@@ -28,7 +30,8 @@ class TravelDayPage extends StatefulWidget {
   State<TravelDayPage> createState() => _TravelDayPageState();
 }
 
-class _TravelDayPageState extends State<TravelDayPage> with TickerProviderStateMixin {
+class _TravelDayPageState extends State<TravelDayPage>
+    with TickerProviderStateMixin {
   late TabController _tabController;
   late int dayCount;
   late List<List<Map<String, String>>> dailySpots;
@@ -40,35 +43,88 @@ class _TravelDayPageState extends State<TravelDayPage> with TickerProviderStateM
     dayCount = widget.endDate.difference(widget.startDate).inDays + 1;
     _tabController = TabController(length: dayCount, vsync: this);
 
-    dailySpots = widget.initialSpots ?? List.generate(dayCount, (_) => []);
-    dailyTransports = widget.initialTransports ?? List.generate(dayCount, (_) => []);
+    final incomingSpots = widget.initialSpots ?? [];
+    dailySpots = List.generate(
+      dayCount,
+      (index) => index < incomingSpots.length ? incomingSpots[index] : [],
+    );
+
+    final incomingTransports = widget.initialTransports ?? [];
+    dailyTransports = List.generate(
+      dayCount,
+      (index) =>
+          index < incomingTransports.length ? incomingTransports[index] : [],
+    );
+
+    _generateTransports();
   }
 
-  void _addSpot(int dayIndex) async {
-    if (widget.readOnly) return;
+  void _generateTransports() {
+    dailyTransports = List.generate(dayCount, (_) => []);
+    for (int day = 0; day < dayCount; day++) {
+      final spots = dailySpots[day];
+      final List<String> transports = [];
+      for (int i = 0; i < spots.length - 1; i++) {
+        final from = spots[i];
+        final to = spots[i + 1];
+        final distance = _calculateDistance(
+          double.tryParse(from['Py'] ?? '') ?? 0,
+          double.tryParse(from['Px'] ?? '') ?? 0,
+          double.tryParse(to['Py'] ?? '') ?? 0,
+          double.tryParse(to['Px'] ?? '') ?? 0,
+        );
+        if (distance < 1) {
+          transports.add('🚶‍ 步行 ${distance.toStringAsFixed(1)}公里');
+        } else if (distance < 10) {
+          transports.add('🚵 機車/汽車 ${distance.toStringAsFixed(1)}公里');
+        } else {
+          transports.add('🚗 汽車/大眾運輸 ${distance.toStringAsFixed(1)}公里');
+        }
+      }
+      dailyTransports[day] = transports;
+    }
+  }
 
+  double _calculateDistance(
+    double lat1,
+    double lon1,
+    double lat2,
+    double lon2,
+  ) {
+    const R = 6371;
+    final dLat = _degreesToRadians(lat2 - lat1);
+    final dLon = _degreesToRadians(lon2 - lon1);
+    final a =
+        sin(dLat / 2) * sin(dLat / 2) +
+        cos(_degreesToRadians(lat1)) *
+            cos(_degreesToRadians(lat2)) *
+            sin(dLon / 2) *
+            sin(dLon / 2);
+    final c = 2 * atan2(sqrt(a), sqrt(1 - a));
+    return R * c;
+  }
+
+  double _degreesToRadians(double degree) => degree * (pi / 180);
+
+  void _exploreAndAddSpots(int dayIndex) async {
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => TravelFormPage(
-          initialData: {'spots': dailySpots[dayIndex]},
-          dayIndex: dayIndex,
-        ),
+        builder: (_) => TravelFormPage(browseOnly: false, dayIndex: dayIndex),
       ),
     );
 
-    if (result != null &&
-        result is Map<String, dynamic> &&
-        result['success'] == true &&
-        result['dayIndex'] != null) {
-      final int returnedDayIndex = result['dayIndex'];
-      final updatedSpots = List<Map<String, String>>.from(result['updatedSpots'] ?? []);
-      final transports = List<String>.from(result['transports'] ?? []);
+    if (result != null && result is Map) {
+      final List<Map<String, String>> selectedSpots =
+          List<Map<String, String>>.from(result['selectedSpots'] ?? []);
+      final int returnedDayIndex = result['dayIndex'] ?? dayIndex;
 
-      setState(() {
-        dailySpots[returnedDayIndex] = updatedSpots;
-        dailyTransports[returnedDayIndex] = transports;
-      });
+      if (selectedSpots.isNotEmpty) {
+        setState(() {
+          dailySpots[returnedDayIndex].addAll(selectedSpots);
+          _generateTransports();
+        });
+      }
     }
   }
 
@@ -92,106 +148,151 @@ class _TravelDayPageState extends State<TravelDayPage> with TickerProviderStateM
     final desc = spot['Description'] ?? '';
     showDialog(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: Text(name),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (desc.isNotEmpty) Text("📖 $desc"),
-              if (address.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8.0),
-                  child: Text("📍 地址：$address"),
-                ),
+      builder:
+          (context) => AlertDialog(
+            title: Text(name),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (desc.isNotEmpty) Text("📖 $desc"),
+                if (address.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8.0),
+                    child: Text("📍 地址：$address"),
+                  ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text("關閉"),
+              ),
             ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text("關閉"),
-            )
-          ],
-        );
-      },
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: dayCount,
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text("🗓 每日行程"),
-          bottom: TabBar(
-            controller: _tabController,
-            isScrollable: true,
-            tabs: List.generate(
-              dayCount,
-              (i) => Tab(
-                text: DateFormat('MM/dd').format(widget.startDate.add(Duration(days: i))),
-              ),
+    final tripDuration =
+        '${DateFormat('yyyy/MM/dd').format(widget.startDate)} ~ ${DateFormat('yyyy/MM/dd').format(widget.endDate)}';
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('🛢️ ${widget.tripName}'),
+        bottom: TabBar(
+          controller: _tabController,
+          isScrollable: true,
+          tabs: List.generate(dayCount, (i) => Tab(text: 'Day ${i + 1}')),
+        ),
+      ),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: double.infinity,
+            color: Colors.blue.shade50,
+            padding: const EdgeInsets.all(12),
+            child: Text(
+              '旅遊期間：$tripDuration',
+              style: const TextStyle(fontWeight: FontWeight.bold),
             ),
           ),
-        ),
-        body: TabBarView(
-          controller: _tabController,
-          children: List.generate(dayCount, (dayIndex) {
-            final spots = dailySpots[dayIndex];
-            final transports = dailyTransports[dayIndex];
-            final int itemCount = spots.length > 1 ? (spots.length * 2 - 1) : spots.length;
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: List.generate(dayCount, (dayIndex) {
+                final spots = dailySpots[dayIndex];
 
-            return Column(
-              children: [
-                const SizedBox(height: 10),
-                if (!widget.readOnly)
-                  ElevatedButton.icon(
-                    onPressed: () => _addSpot(dayIndex),
-                    icon: const Icon(Icons.add_location_alt),
-                    label: const Text("新增景點"),
-                  ),
-                Expanded(
-                  child: ListView.builder(
-                    itemCount: itemCount,
-                    itemBuilder: (_, index) {
-                      if (index.isEven) {
-                        final spot = spots[index ~/ 2];
-                        return ListTile(
-                          onTap: () => _showSpotDetail(spot),
-                          title: Text(spot['Name'] ?? '無名稱'),
-                          subtitle: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('${spot['Region'] ?? ''} ${spot['Town'] ?? ''}'),
-                              if ((spot['Add'] ?? '').isNotEmpty)
-                                Text('📍 ${spot['Add']}'),
-                            ],
-                          ),
-                        );
-                      } else {
-                        final transportIndex = (index - 1) ~/ 2;
-                        return Center(
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 4),
-                            child: Text(
-                              transports.length > transportIndex ? transports[transportIndex] : '',
-                              style: const TextStyle(fontSize: 12, color: Colors.grey),
-                            ),
-                          ),
-                        );
-                      }
-                    },
-                  ),
-                ),
-              ],
-            );
-          }),
-        ),
-        bottomNavigationBar: widget.readOnly
-            ? null
-            : Padding(
+                return Column(
+                  children: [
+                    if (!widget.readOnly)
+                      Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: ElevatedButton.icon(
+                          onPressed: () => _exploreAndAddSpots(dayIndex),
+                          icon: const Icon(Icons.add_location_alt),
+                          label: const Text("探索新增景點"),
+                        ),
+                      ),
+                    Expanded(
+                      child:
+                          spots.isEmpty
+                              ? const Center(
+                                child: Text(
+                                  '今日尚未安排景點',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                              )
+                              : ReorderableListView(
+                                onReorder: (oldIndex, newIndex) {
+                                  setState(() {
+                                    if (newIndex > oldIndex) newIndex -= 1;
+                                    final spot = spots.removeAt(oldIndex);
+                                    spots.insert(newIndex, spot);
+                                    _generateTransports();
+                                  });
+                                },
+                                children: List.generate(spots.length, (index) {
+                                  final spot = spots[index];
+                                  return Card(
+                                    key: ValueKey(spot['Name'] ?? '$index'),
+                                    margin: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 6,
+                                    ),
+                                    child: ListTile(
+                                      title: Text(spot['Name'] ?? '無名稱'),
+                                      subtitle: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            '${spot['Region'] ?? ''} ${spot['Town'] ?? ''}',
+                                          ),
+                                          if (index <
+                                              (dailyTransports[dayIndex]
+                                                      ?.length ??
+                                                  0))
+                                            Padding(
+                                              padding: const EdgeInsets.only(
+                                                top: 4,
+                                              ),
+                                              child: Text(
+                                                dailyTransports[dayIndex]![index],
+                                                style: const TextStyle(
+                                                  fontSize: 12,
+                                                  color: Colors.grey,
+                                                ),
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                      trailing: ReorderableDragStartListener(
+                                        index: index,
+                                        child: const Icon(Icons.drag_handle),
+                                      ),
+                                      onTap: () => _showSpotDetail(spot),
+                                    ),
+                                  );
+                                }),
+                              ),
+                    ),
+                  ],
+                );
+              }),
+            ),
+          ),
+        ],
+      ),
+      bottomNavigationBar:
+          widget.readOnly
+              ? null
+              : Padding(
                 padding: const EdgeInsets.all(12),
                 child: ElevatedButton.icon(
                   onPressed: _saveTrip,
@@ -199,7 +300,6 @@ class _TravelDayPageState extends State<TravelDayPage> with TickerProviderStateM
                   label: const Text("儲存行程"),
                 ),
               ),
-      ),
     );
   }
 }

@@ -5,6 +5,7 @@ import 'package:csv/csv.dart';
 import 'package:intl/intl.dart';
 import 'package:location/location.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:travel/travel_info_page.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'dart:convert';
 import 'package:travel/travel_schedule_page.dart';
@@ -112,11 +113,28 @@ class _TravelFormPageState extends State<TravelFormPage> {
 
     // ✅ 台灣縣市的自訂順序
     final List<String> taiwanCityOrder = [
-      "基隆市", "臺北市", "新北市", "桃園市", "新竹市", "新竹縣",
-      "苗栗縣", "臺中市", "彰化縣", "南投縣",
-      "雲林縣", "嘉義市", "嘉義縣", "臺南市", "高雄市", "屏東縣",
-      "宜蘭縣", "花蓮縣", "臺東縣",
-      "澎湖縣", "金門縣", "連江縣"
+      "基隆市",
+      "臺北市",
+      "新北市",
+      "桃園市",
+      "新竹市",
+      "新竹縣",
+      "苗栗縣",
+      "臺中市",
+      "彰化縣",
+      "南投縣",
+      "雲林縣",
+      "嘉義市",
+      "嘉義縣",
+      "臺南市",
+      "高雄市",
+      "屏東縣",
+      "宜蘭縣",
+      "花蓮縣",
+      "臺東縣",
+      "澎湖縣",
+      "金門縣",
+      "連江縣",
     ];
 
     // 鄉鎮排序
@@ -134,9 +152,6 @@ class _TravelFormPageState extends State<TravelFormPage> {
       cityTownMap = sortedResult;
     });
   }
-
-
-
 
   void _filterByCityTown() {
     if (selectedCity != null && selectedTown != null) {
@@ -289,19 +304,48 @@ class _TravelFormPageState extends State<TravelFormPage> {
     );
   }
 
-  void _goToSchedulePage() {
-    if (selectedSpots.isEmpty || widget.initialData == null) {
-      print('🚫 選擇的景點為空或沒有 initialData');
+  void _goToSchedulePage() async {
+    if (widget.browseOnly) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('目前是瀏覽模式，無法排入行程表')));
       return;
     }
 
-    print('📦 initialData: ${widget.initialData}');
+    if (selectedSpots.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('請先選擇景點')));
+      return;
+    }
 
-    final startStr = widget.initialData!['start_date'];
-    final endStr = widget.initialData!['end_date'];
+    Map<String, dynamic>? tripInfo = widget.initialData;
+
+    if (tripInfo == null) {
+      // ⛳ 如果沒有 initialData，跳到 TravelInfoInputPage 請使用者填資料
+      final result = await Navigator.push<Map<String, dynamic>>(
+        context,
+        MaterialPageRoute(builder: (_) => const TravelInfoInputPage()),
+      );
+
+      if (result == null) {
+        // 使用者取消或沒填資料
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('未完成行程資訊填寫')));
+        return;
+      }
+      tripInfo = result;
+    }
+
+    // 🛫 正常跳到 TravelSchedulePage 排行程
+    final startStr = tripInfo['start_date'];
+    final endStr = tripInfo['end_date'];
 
     if (startStr == null || endStr == null) {
-      print('❗ start_date 或 end_date 為 null');
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('行程資料異常，無法排表')));
       return;
     }
 
@@ -316,6 +360,7 @@ class _TravelFormPageState extends State<TravelFormPage> {
               selectedSpots: selectedSpots,
               startDate: startDate,
               endDate: endDate,
+              selectedDayIndex: 0,
             ),
       ),
     );
@@ -466,20 +511,18 @@ class _TravelFormPageState extends State<TravelFormPage> {
                 ),
               ),
             ),
-          if (selectedSpots.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: ElevatedButton.icon(
-                onPressed: _goToSchedulePage,
-                icon: const Icon(Icons.calendar_today),
-                label: const Text('排入行程表'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
-                  minimumSize: const Size(double.infinity, 48),
-                ),
-              ),
-            ),
+          const SizedBox(height: 8),
         ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed:
+            selectedSpots.isNotEmpty
+                ? () {
+                  Navigator.pop(context, selectedSpots); // ✅ 把選到的景點直接傳回去
+                }
+                : null,
+        icon: const Icon(Icons.check),
+        label: Text('完成 (${selectedSpots.length})'),
       ),
     );
   }
