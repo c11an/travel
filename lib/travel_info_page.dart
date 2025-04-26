@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'travel_day_page.dart';
 
 class TravelInfoInputPage extends StatefulWidget {
   final Map<String, dynamic>? initialData;
@@ -56,9 +55,9 @@ class _TravelInfoInputPageState extends State<TravelInfoInputPage> {
         _budgetController.text.isEmpty ||
         _startDateController.text.isEmpty ||
         _endDateController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('請填寫完整資訊')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('請填寫完整資訊')));
       return;
     }
 
@@ -68,36 +67,10 @@ class _TravelInfoInputPageState extends State<TravelInfoInputPage> {
       'start_date': _startDateController.text,
       'end_date': _endDateController.text,
       'transport': _selectedTransport,
-      'trip_type': _selectedTripType, // ✅ 加入 trip_type
+      'trip_type': _selectedTripType,
     };
 
-    if (isEditing) {
-      Navigator.pop(context, tripData);
-    } else {
-      final startDate = DateFormat('yyyy-MM-dd').parse(tripData['start_date'] as String);
-      final endDate = DateFormat('yyyy-MM-dd').parse(tripData['end_date'] as String);
-      final tripName = tripData['trip_name'] as String;
-      final transport = tripData['transport'] as String;
-      final budget = tripData['budget'] as int;
-
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => TravelDayPage(
-            tripName: tripName,
-            startDate: startDate,
-            endDate: endDate,
-            budget: budget,
-            transport: transport,
-          ),
-        ),
-      ).then((finalResult) {
-        if (finalResult != null && finalResult is Map<String, dynamic>) {
-          finalResult['trip_type'] = _selectedTripType; // 👈 確保傳回結果也包含類型
-          Navigator.pop(context, finalResult);
-        }
-      });
-    }
+    Navigator.pop(context, tripData); // 🔥直接傳回探索頁
   }
 
   @override
@@ -156,9 +129,13 @@ class _TravelInfoInputPageState extends State<TravelInfoInputPage> {
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
               value: _selectedTripType,
-              items: _tripTypeOptions
-                  .map((type) => DropdownMenuItem(value: type, child: Text(type)))
-                  .toList(),
+              items:
+                  _tripTypeOptions
+                      .map(
+                        (type) =>
+                            DropdownMenuItem(value: type, child: Text(type)),
+                      )
+                      .toList(),
               onChanged: (value) {
                 if (value != null) setState(() => _selectedTripType = value);
               },
@@ -170,9 +147,10 @@ class _TravelInfoInputPageState extends State<TravelInfoInputPage> {
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
               value: _selectedTransport,
-              items: _transportOptions
-                  .map((t) => DropdownMenuItem(value: t, child: Text(t)))
-                  .toList(),
+              items:
+                  _transportOptions
+                      .map((t) => DropdownMenuItem(value: t, child: Text(t)))
+                      .toList(),
               onChanged: (value) {
                 if (value != null) {
                   setState(() => _selectedTransport = value);

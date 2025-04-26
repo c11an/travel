@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:travel/travel_form_page.dart';
+import 'package:travel/travel_schedule_page.dart';
 import 'dart:convert';
 
 import 'travel_info_page.dart';
@@ -150,24 +151,55 @@ class _TravelInputPageState extends State<TravelInputPage> {
   }
 
   void _addTrip() async {
-    final result = await Navigator.push(
+    // Step 1：先填寫基本資料（info）
+    final infoResult = await Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const TravelInfoInputPage()),
     );
 
-    if (result != null && result is Map<String, dynamic>) {
-      Navigator.push(
+    if (infoResult != null && infoResult is Map<String, dynamic>) {
+      // Step 2：接著跳到探索地圖選景點（browseOnly: false）
+      final selectedSpotsResult = await Navigator.push(
         context,
-        MaterialPageRoute(builder: (_) => TravelFormPage(initialData: result)),
-      ).then((finalTripData) {
-        if (finalTripData != null && finalTripData is Map<String, dynamic>) {
+        MaterialPageRoute(
+          builder: (_) => TravelFormPage(browseOnly: false), // ✅ 這裡一定要 false
+        ),
+      );
+
+      if (selectedSpotsResult != null &&
+          selectedSpotsResult is List<Map<String, String>>) {
+        // Step 3：帶著選到的景點，去排每日行程
+        final scheduleResult = await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder:
+                (_) => TravelSchedulePage(
+                  selectedSpots: selectedSpotsResult,
+                  startDate: DateTime.parse(infoResult['start_date']),
+                  endDate: DateTime.parse(infoResult['end_date']),
+                  selectedDayIndex: 0,
+                ),
+          ),
+        );
+
+        if (scheduleResult != null && scheduleResult is Map<String, dynamic>) {
+          // Step 4：最後存成完整 trip
+          final tripData = {
+            'trip_name': infoResult['trip_name'],
+            'start_date': infoResult['start_date'],
+            'end_date': infoResult['end_date'],
+            'budget': infoResult['budget'],
+            'transport': infoResult['transport'],
+            'trip_type': infoResult['trip_type'],
+            'daily_spots': scheduleResult['daily_spots'],
+            'daily_transports': scheduleResult['daily_transports'],
+          };
           setState(() {
-            trips.add(finalTripData); // ✅ 這邊就不會報錯了
+            trips.add(tripData);
           });
           _saveTripsToStorage();
-          _loadFavorites();
         }
-      });
+      }
     }
   }
 
