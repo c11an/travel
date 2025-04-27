@@ -407,12 +407,12 @@ class _HomePageState extends State<HomePage> {
             const SizedBox(height: 20), // ✅ 上下間距（兩排按鈕之間）
             Row(
               children: [
-                _buildFeatureButton("機票", Icons.flight, () {
-                  _launchURL("https://flights.google.com/");
+                _buildFeatureButton("火車", Icons.train, () {
+                  _launchURL("https://www.railway.gov.tw/tra-tip-web/tip/tip001/tip122/tripOne/byTrainNo");
                 }),
                 const SizedBox(width: 20), // 這裡調整間距
-                _buildFeatureButton("旅遊網卡", Icons.sim_card, () {
-                  _launchURL("https://yoyogoshop.com/");
+                _buildFeatureButton("高鐵", Icons.directions_railway, () {
+                  _launchURL("https://www.thsrc.com.tw/ArticleContent/dea241a9-fe69-4e9d-b9a5-6caed6e486d6");
                 }),
               ],
             ),

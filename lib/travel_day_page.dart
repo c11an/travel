@@ -256,14 +256,14 @@ class _TravelDayPageState extends State<TravelDayPage>
                                           ),
                                           if (index <
                                               (dailyTransports[dayIndex]
-                                                      ?.length ??
+                                                      .length ??
                                                   0))
                                             Padding(
                                               padding: const EdgeInsets.only(
                                                 top: 4,
                                               ),
                                               child: Text(
-                                                dailyTransports[dayIndex]![index],
+                                                dailyTransports[dayIndex][index],
                                                 style: const TextStyle(
                                                   fontSize: 12,
                                                   color: Colors.grey,
