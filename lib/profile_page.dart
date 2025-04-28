@@ -6,7 +6,9 @@ import 'dart:io';
 
 import 'travel_input_page.dart';
 import 'travel_day_page.dart';
-import 'setting_page.dart'; // 新增 import
+import 'setting_page.dart';
+import 'follow_list_page.dart';
+import 'login.dart'; // 🔥 登出要跳回LoginPage
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -20,15 +22,19 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
   List<Map<String, dynamic>> uploadedTrips = [];
   List<Map<String, dynamic>> favoriteCommunityTrips = [];
 
+  final List<String> followingUsers = ['Alice', 'Bob', 'Charlie'];
+  final List<String> followerUsers = ['David', 'Emma'];
+
   late TabController _tabController;
-  int followingCount = 10;
-  int followerCount = 25;
+  int get followingCount => followingUsers.length;
+  int get followerCount => followerUsers.length;
   int favoriteSpotCount = 15;
 
   @override
   void initState() {
     super.initState();
     _loadUploadedTrips();
+    _loadAvatarImage();
     _tabController = TabController(length: 2, vsync: this);
   }
 
@@ -43,14 +49,118 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
     });
   }
 
-  Future<void> _pickAvatarImage() async {
-    final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
-
-    if (pickedFile != null) {
+  Future<void> _loadAvatarImage() async {
+    final prefs = await SharedPreferences.getInstance();
+    final avatarPath = prefs.getString('avatarPath');
+    if (avatarPath != null && File(avatarPath).existsSync()) {
       setState(() {
-        _avatarImage = File(pickedFile.path);
+        _avatarImage = File(avatarPath);
       });
+    }
+  }
+
+  Future<void> _pickAvatarImage() async {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) {
+        return SafeArea(
+          child: Wrap(
+            children: [
+              ListTile(
+                leading: const Icon(Icons.photo_library),
+                title: const Text('從相簿選擇照片'),
+                onTap: () async {
+                  Navigator.pop(context);
+                  final picker = ImagePicker();
+                  final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+
+                  if (pickedFile != null) {
+                    final prefs = await SharedPreferences.getInstance();
+                    await prefs.setString('avatarPath', pickedFile.path);
+
+                    setState(() {
+                      _avatarImage = File(pickedFile.path);
+                    });
+
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('✅ 頭像更新成功！'),
+                          duration: Duration(seconds: 2),
+                        ),
+                      );
+                    }
+                  }
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.delete),
+                title: const Text('刪除頭像'),
+                onTap: () async {
+                  Navigator.pop(context);
+                  final prefs = await SharedPreferences.getInstance();
+                  await prefs.remove('avatarPath');
+
+                  setState(() {
+                    _avatarImage = null;
+                  });
+
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('🗑️ 頭像已刪除'),
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+                  }
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _logout() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('確認登出'),
+          content: const Text('確定要登出嗎？'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('取消'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('確定'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed == true) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.clear();
+
+      if (mounted) {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const LoginPage()),
+          (route) => false,
+        );
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ 已成功登出！'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
     }
   }
 
@@ -80,9 +190,11 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
           transport: trip["transport"] ?? '未指定',
           initialSpots: (trip['daily_spots'] as List)
               .map<List<Map<String, String>>>((d) => (d as List)
-              .map<Map<String, String>>((s) => Map<String, String>.from(s)).toList()).toList(),
+                  .map<Map<String, String>>((s) => Map<String, String>.from(s)).toList())
+              .toList(),
           initialTransports: (trip['daily_transports'] as List)
-              .map<List<String>>((d) => (d as List).map<String>((s) => s.toString()).toList()).toList(),
+              .map<List<String>>((d) => (d as List).map<String>((s) => s.toString()).toList())
+              .toList(),
           readOnly: true,
         ),
       ),
@@ -112,6 +224,15 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
     );
   }
 
+  void _openFollowList(String title, List<String> users) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => FollowListPage(title: title, userList: users),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -133,10 +254,15 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
               children: [
                 GestureDetector(
                   onTap: _pickAvatarImage,
-                  child: CircleAvatar(
-                    radius: 35,
-                    backgroundImage: _avatarImage != null ? FileImage(_avatarImage!) : null,
-                    child: _avatarImage == null ? const Icon(Icons.person, size: 35) : null,
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 400),
+                    transitionBuilder: (child, animation) => ScaleTransition(scale: animation, child: child),
+                    child: CircleAvatar(
+                      key: ValueKey(_avatarImage?.path ?? 'default_avatar'),
+                      radius: 35,
+                      backgroundImage: _avatarImage != null ? FileImage(_avatarImage!) : null,
+                      child: _avatarImage == null ? const Icon(Icons.person, size: 35) : null,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -155,8 +281,14 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                Text('追蹤中：$followingCount', style: const TextStyle(fontSize: 16)),
-                Text('粉絲數：$followerCount', style: const TextStyle(fontSize: 16)),
+                GestureDetector(
+                  onTap: () => _openFollowList('我追蹤的人', followingUsers),
+                  child: Text('追蹤中：$followingCount', style: const TextStyle(fontSize: 16)),
+                ),
+                GestureDetector(
+                  onTap: () => _openFollowList('粉絲列表', followerUsers),
+                  child: Text('粉絲數：$followerCount', style: const TextStyle(fontSize: 16)),
+                ),
               ],
             ),
 

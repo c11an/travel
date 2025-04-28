@@ -265,10 +265,11 @@ class _RegisterPageState extends State<RegisterPage> {
       _showMessageDialog('註冊成功！請登入');
       await Future.delayed(const Duration(seconds: 1));
       if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const LoginPage()),
-        );
+        Navigator.pushAndRemoveUntil(
+           context,
+           MaterialPageRoute(builder: (context) => const HomePage()),
+           (route) => false, // ⭐️清空之前所有頁面
+         );
       }
     } else {
       try {
