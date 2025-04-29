@@ -693,22 +693,46 @@ class _HomePageState extends State<HomePage> {
       _buildProfilePage(),
     ];
 
-    return Scaffold(
-      body: pages[_selectedIndex],
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _selectedIndex,
-        selectedItemColor: Colors.blueAccent,
-        unselectedItemColor: Colors.grey,
-        onTap: _onItemTapped,
-        type: BottomNavigationBarType.fixed,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: '首頁'),
-          BottomNavigationBarItem(icon: Icon(Icons.explore), label: '探索'),
-          BottomNavigationBarItem(icon: Icon(Icons.map), label: '行程'),
-          BottomNavigationBarItem(icon: Icon(Icons.book), label: '日誌'),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: '個人'),
-        ],
+    return WillPopScope(
+      onWillPop: () async {
+        if (_selectedIndex != 0) {
+          setState(() {
+            _selectedIndex = 0;
+          });
+          return false;
+        } else {
+          return true;
+        }
+      },
+      child: Scaffold(
+        body: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 300),
+          transitionBuilder: (Widget child, Animation<double> animation) {
+            return FadeTransition(
+              opacity: animation,
+              child: child,
+            );
+          },
+          child: pages[_selectedIndex],
+        ),
+        bottomNavigationBar: BottomNavigationBar(
+          currentIndex: _selectedIndex,
+          selectedItemColor: Colors.blueAccent,
+          unselectedItemColor: Colors.grey,
+          onTap: _onItemTapped,
+          type: BottomNavigationBarType.fixed,
+          items: const [
+            BottomNavigationBarItem(icon: Icon(Icons.home), label: '首頁'),
+            BottomNavigationBarItem(icon: Icon(Icons.explore), label: '探索'),
+            BottomNavigationBarItem(icon: Icon(Icons.map), label: '行程'),
+            BottomNavigationBarItem(icon: Icon(Icons.book), label: '日誌'),
+            BottomNavigationBarItem(icon: Icon(Icons.person), label: '個人'),
+          ],
+        ),
       ),
     );
+
   }
+
+
 }

@@ -107,11 +107,45 @@ class _SettingPageState extends State<SettingPage> {
           const Divider(),
 
           ListTile(
-            leading: const Icon(Icons.logout),
-            title: const Text('登出'),
-            onTap: _logout,
+            leading: const Icon(Icons.logout, color: Colors.red),
+            title: const Text('登出', style: TextStyle(color: Colors.red)),
+            onTap: () async {
+              final confirmed = await showDialog<bool>(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text('確認登出'),
+                  content: const Text('確定要登出嗎？'),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      child: const Text('取消'),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      child: const Text('確定'),
+                    ),
+                  ],
+                ),
+              );
+
+              if (confirmed == true) {
+                final prefs = await SharedPreferences.getInstance();
+                await prefs.clear();
+
+                if (context.mounted) {
+                  Navigator.pushAndRemoveUntil(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const LoginPage(),
+                      settings: const RouteSettings(arguments: 'logged_out'),
+                    ),
+                    (route) => false,
+                  );
+                }
+              }
+            },
           ),
-          const Divider(),
+
 
           SwitchListTile(
             secondary: const Icon(Icons.brightness_6),

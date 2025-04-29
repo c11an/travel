@@ -182,13 +182,34 @@ class _TravelSchedulePageState extends State<TravelSchedulePage>
                     child: ListTile(
                       leading: IconButton(
                         icon: const Icon(Icons.delete, color: Colors.red),
-                        onPressed: () {
-                          setState(() {
-                            spots.removeAt(index);
-                            _generateTransports();
-                          });
+                        onPressed: () async {
+                          final confirm = await showDialog<bool>(
+                            context: context,
+                            builder: (_) => AlertDialog(
+                              title: const Text('刪除景點'),
+                              content: Text('確定要刪除「${spot['Name']}」嗎？'),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(context, false),
+                                  child: const Text('取消'),
+                                ),
+                                TextButton(
+                                  onPressed: () => Navigator.pop(context, true),
+                                  child: const Text('確定'),
+                                ),
+                              ],
+                            ),
+                          );
+
+                          if (confirm == true) {
+                            setState(() {
+                              spots.removeAt(index);
+                              _generateTransports();
+                            });
+                          }
                         },
                       ),
+
                       title: Text(spot['Name'] ?? '無名稱'),
                       subtitle: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,

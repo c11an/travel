@@ -178,6 +178,19 @@ class _LoginPageState extends State<LoginPage> {
       },
     );
   }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final args = ModalRoute.of(context)?.settings.arguments;
+    if (args == 'logged_out') {
+      Future.delayed(Duration.zero, () {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('✅ 已成功登出！')),
+        );
+      });
+    }
+  }
 }
 
 // 🔻 RegisterPage 已新增：姓、名、email 欄位，並一併傳給後端
