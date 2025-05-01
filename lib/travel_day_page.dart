@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'travel_form_page.dart';
+import 'map_view_page.dart'; // ⭐️ 要新增的地圖顯示頁面
 
 class TravelDayPage extends StatefulWidget {
   final String tripName;
@@ -128,6 +129,18 @@ class _TravelDayPageState extends State<TravelDayPage>
     }
   }
 
+  void _showMap(int dayIndex) {
+    final spots = dailySpots[dayIndex];
+    if (spots.isEmpty) return;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => MapViewPage(spots: spots),
+      ),
+    );
+  }
+
   void _saveTrip() {
     final tripData = {
       'trip_name': widget.tripName,
@@ -148,28 +161,33 @@ class _TravelDayPageState extends State<TravelDayPage>
     final desc = spot['Description'] ?? '';
     showDialog(
       context: context,
-      builder:
-          (context) => AlertDialog(
-            title: Text(name),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (desc.isNotEmpty) Text("📖 $desc"),
-                if (address.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8.0),
-                    child: Text("📍 地址：$address"),
-                  ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text("關閉"),
+      builder: (context) => AlertDialog(
+        title: Text(name),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (desc.isNotEmpty) Text("📖 $desc"),
+            if (address.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 8.0),
+                child: Text("📍 地址：$address"),
               ),
-            ],
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("關閉"),
           ),
+        ],
+      ),
+    );
+  }
+
+  void _showDeletedMessage() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('🗑️ 景點已刪除')),
     );
   }
 
@@ -207,40 +225,88 @@ class _TravelDayPageState extends State<TravelDayPage>
 
                 return Column(
                   children: [
-                    if (!widget.readOnly)
-                      Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: ElevatedButton.icon(
-                          onPressed: () => _exploreAndAddSpots(dayIndex),
-                          icon: const Icon(Icons.add_location_alt),
-                          label: const Text("探索新增景點"),
-                        ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      child: Row(
+                        children: [
+                          if (!widget.readOnly)
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                onPressed: () => _exploreAndAddSpots(dayIndex),
+                                icon: const Icon(Icons.add_location_alt),
+                                label: const Text("探索新增景點"),
+                              ),
+                            ),
+                          if (!widget.readOnly) const SizedBox(width: 12),
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: () => _showMap(dayIndex),
+                              icon: const Icon(Icons.map),
+                              label: const Text("在地圖查看"),
+                            ),
+                          ),
+                        ],
                       ),
+                    ),
+
                     Expanded(
-                      child:
-                          spots.isEmpty
-                              ? const Center(
-                                child: Text(
-                                  '今日尚未安排景點',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    color: Colors.grey,
-                                  ),
+                      child: spots.isEmpty
+                          ? const Center(
+                              child: Text(
+                                '今日尚未安排景點',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: Colors.grey,
                                 ),
-                              )
-                              : ReorderableListView(
-                                onReorder: (oldIndex, newIndex) {
-                                  setState(() {
-                                    if (newIndex > oldIndex) newIndex -= 1;
-                                    final spot = spots.removeAt(oldIndex);
-                                    spots.insert(newIndex, spot);
-                                    _generateTransports();
-                                  });
-                                },
-                                children: List.generate(spots.length, (index) {
-                                  final spot = spots[index];
-                                  return Card(
-                                    key: ValueKey(spot['Name'] ?? '$index'),
+                              ),
+                            )
+                          : ReorderableListView(
+                              onReorder: (oldIndex, newIndex) {
+                                setState(() {
+                                  if (newIndex > oldIndex) newIndex -= 1;
+                                  final spot = spots.removeAt(oldIndex);
+                                  spots.insert(newIndex, spot);
+                                  _generateTransports();
+                                });
+                              },
+                              children: List.generate(spots.length, (index) {
+                                final spot = spots[index];
+                                return Dismissible(
+                                  key: ValueKey(spot['Name'] ?? '$index'),
+                                  direction: DismissDirection.endToStart,
+                                  background: Container(
+                                    color: Colors.red,
+                                    alignment: Alignment.centerRight,
+                                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                                    child: const Icon(Icons.delete, color: Colors.white),
+                                  ),
+                                  confirmDismiss: (direction) async {
+                                    return await showDialog(
+                                      context: context,
+                                      builder: (context) => AlertDialog(
+                                        title: const Text('刪除景點'),
+                                        content: const Text('確定要刪除這個景點嗎？'),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () => Navigator.of(context).pop(false),
+                                            child: const Text('取消'),
+                                          ),
+                                          TextButton(
+                                            onPressed: () => Navigator.of(context).pop(true),
+                                            child: const Text('刪除'),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  },
+                                  onDismissed: (_) {
+                                    setState(() {
+                                      spots.removeAt(index);
+                                      _generateTransports();
+                                    });
+                                    _showDeletedMessage();
+                                  },
+                                  child: Card(
                                     margin: const EdgeInsets.symmetric(
                                       horizontal: 12,
                                       vertical: 6,
@@ -248,26 +314,15 @@ class _TravelDayPageState extends State<TravelDayPage>
                                     child: ListTile(
                                       title: Text(spot['Name'] ?? '無名稱'),
                                       subtitle: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
+                                        crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
-                                          Text(
-                                            '${spot['Region'] ?? ''} ${spot['Town'] ?? ''}',
-                                          ),
-                                          if (index <
-                                              (dailyTransports[dayIndex]
-                                                      .length ??
-                                                  0))
+                                          Text('${spot['Region'] ?? ''} ${spot['Town'] ?? ''}'),
+                                          if (index < (dailyTransports[dayIndex].length ?? 0))
                                             Padding(
-                                              padding: const EdgeInsets.only(
-                                                top: 4,
-                                              ),
+                                              padding: const EdgeInsets.only(top: 4),
                                               child: Text(
                                                 dailyTransports[dayIndex][index],
-                                                style: const TextStyle(
-                                                  fontSize: 12,
-                                                  color: Colors.grey,
-                                                ),
+                                                style: const TextStyle(fontSize: 12, color: Colors.grey),
                                               ),
                                             ),
                                         ],
@@ -278,10 +333,11 @@ class _TravelDayPageState extends State<TravelDayPage>
                                       ),
                                       onTap: () => _showSpotDetail(spot),
                                     ),
-                                  );
-                                }),
-                              ),
+                                  ),
+                                );
+                              }),
                     ),
+                  )
                   ],
                 );
               }),
@@ -289,17 +345,16 @@ class _TravelDayPageState extends State<TravelDayPage>
           ),
         ],
       ),
-      bottomNavigationBar:
-          widget.readOnly
-              ? null
-              : Padding(
-                padding: const EdgeInsets.all(12),
-                child: ElevatedButton.icon(
-                  onPressed: _saveTrip,
-                  icon: const Icon(Icons.check),
-                  label: const Text("儲存行程"),
-                ),
+      bottomNavigationBar: widget.readOnly
+          ? null
+          : Padding(
+              padding: const EdgeInsets.all(12),
+              child: ElevatedButton.icon(
+                onPressed: _saveTrip,
+                icon: const Icon(Icons.check),
+                label: const Text("儲存行程"),
               ),
+            ),
     );
   }
 }

@@ -4,8 +4,6 @@ import 'package:image_picker/image_picker.dart';
 import 'dart:convert';
 import 'dart:io';
 
-import 'travel_input_page.dart';
-import 'travel_day_page.dart';
 import 'setting_page.dart';
 import 'follow_list_page.dart';
 import 'login.dart';
