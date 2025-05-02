@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:travel/ai_recommend_page.dart';
 import 'package:travel/journal_page.dart';
 import 'package:travel/profile_page.dart';
+import 'package:travel/travel_day_page.dart';
 import 'package:travel/travel_form_page.dart';
 import 'package:travel/travel_input_page.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -201,12 +203,14 @@ class _HomePageState extends State<HomePage> {
   String? selectedCategory;
 
   Map<String, List<String>> cityTownMap = {};
+  List<Map<String, dynamic>> _savedTrips = [];
 
   @override
   void initState() {
     super.initState();
     _startAutoSlide();
     _loadCityTownData();
+    _loadSavedTrips();
   }
 
   void _startAutoSlide() {
@@ -294,6 +298,16 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
+  Future<void> _loadSavedTrips() async {
+    final prefs = await SharedPreferences.getInstance();
+    final tripListString = prefs.getStringList('trip_list') ?? [];
+    setState(() {
+      _savedTrips = tripListString
+          .map((e) => jsonDecode(e) as Map<String, dynamic>)
+          .toList();
+    });
+  }
+
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
@@ -376,10 +390,38 @@ class _HomePageState extends State<HomePage> {
                       ),
                     ),
                     const SizedBox(height: 10),
-                    const Text(
-                      '目前沒有旅遊規劃紀錄',
-                      style: TextStyle(color: Colors.grey),
-                    ),
+                    if (_savedTrips.isEmpty)
+                      const Text('目前沒有旅遊規劃紀錄', style: TextStyle(color: Colors.grey)),
+                    ..._savedTrips.map((trip) => ListTile(
+                          title: Text(trip['trip_name'] ?? '未命名行程'),
+                          subtitle: Text("📅 ${trip['start_date']} ~ ${trip['end_date']}"),
+                          trailing: const Icon(Icons.chevron_right),
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => TravelDayPage(
+                                  tripName: trip['trip_name'],
+                                  startDate: DateTime.parse(trip['start_date']),
+                                  endDate: DateTime.parse(trip['end_date']),
+                                  budget: trip['budget'],
+                                  transport: trip['transport'],
+                                  initialSpots: (trip['daily_spots'] as List)
+                                      .map<List<Map<String, String>>>((day) => (day as List)
+                                          .map<Map<String, String>>((s) =>
+                                              Map<String, String>.from(s))
+                                          .toList())
+                                      .toList(),
+                                  initialTransports: (trip['daily_transports'] as List)
+                                      .map<List<String>>((tList) =>
+                                          (tList as List).map<String>((t) => t.toString()).toList())
+                                      .toList(),
+                                  readOnly: true,
+                                ),
+                              ),
+                            );
+                          },
+                        )),
                     const SizedBox(height: 10),
                     ElevatedButton(
                       onPressed: () => _onItemTapped(2),
@@ -389,6 +431,7 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
             ),
+
 
             const SizedBox(height: 20),
 
