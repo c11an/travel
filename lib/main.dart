@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:travel/directions_api_test.dart';
+import 'package:travel/home.dart';
 import 'package:travel/login.dart';
 
 void main() {
@@ -67,7 +69,7 @@ class _MyAppState extends State<MyApp> {
           useMaterial3: true,
         ),
 
-      home: const LoginPage(), // 預設從登入頁進入
+      home: const HomePage(), // 預設從登入頁進入
     );
   }
 }

@@ -6,7 +6,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 // ⛳ 請務必填入你自己的可用 API Key，且要啟用 Directions API
-const String googleApiKey = 'YOUR_REAL_GOOGLE_API_KEY';
+const String googleApiKey = 'AIzaSyC1UdVpu5sEOvOrJCidr8YZPMWTgQKazjs';
 
 class MapViewPage extends StatefulWidget {
   final List<Map<String, String>> spots;
