@@ -7,6 +7,8 @@ import 'dart:io';
 import 'setting_page.dart';
 import 'follow_list_page.dart';
 import 'login.dart';
+import 'favorites_spot_page.dart';
+import 'favorites_trip_page.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -129,6 +131,34 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
     );
   }
 
+  Widget _buildFavoriteBlock(String title, IconData icon, Color color, Widget page) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => page),
+          );
+        },
+        child: Container(
+          height: 100,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, color: Colors.white, size: 32),
+              const SizedBox(height: 8),
+              Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -194,7 +224,18 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
                 controller: _tabController,
                 children: [
                   _buildTripList(uploadedTrips),
-                  _buildTripList(favoriteCommunityTrips),
+                  Column(
+                    children: [
+                      Row(
+                        children: [
+                          _buildFavoriteBlock('收藏景點', Icons.place, Colors.lightBlue, const FavoritesSpotPage()),
+                          const SizedBox(width: 16),
+                          _buildFavoriteBlock('收藏行程', Icons.map, Colors.orange, const FavoritesTripPage()),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                    ],
+                  ),
                 ],
               ),
             ),

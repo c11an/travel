@@ -69,7 +69,7 @@ class _MyAppState extends State<MyApp> {
           useMaterial3: true,
         ),
 
-      home: const HomePage(), // 預設從登入頁進入
+      home: const LoginPage(), // 預設從登入頁進入
     );
   }
 }

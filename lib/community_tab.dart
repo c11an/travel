@@ -93,28 +93,39 @@ class _CommunityTabState extends State<CommunityTab> {
 
   Future<void> _saveToMyTrips(Map<String, dynamic> trip) async {
     final prefs = await SharedPreferences.getInstance();
-    final List<String> tripListString = prefs.getStringList('trip_list') ?? [];
 
-    bool isDuplicate = tripListString.any((t) {
+    // 儲存到 trip_list
+    final List<String> tripListString = prefs.getStringList('trip_list') ?? [];
+    final bool existsInTripList = tripListString.any((t) {
       final decoded = jsonDecode(t);
       return decoded['trip_name'] == trip['trip_name'] &&
-             decoded['start_date'] == trip['start_date'];
+            decoded['start_date'] == trip['start_date'];
     });
 
-    if (isDuplicate) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('此行程已經在我的行程中')),
-      );
-      return;
+    if (!existsInTripList) {
+      tripListString.add(jsonEncode(trip));
+      await prefs.setStringList('trip_list', tripListString);
     }
 
-    tripListString.add(jsonEncode(trip));
-    await prefs.setStringList('trip_list', tripListString);
+    // 儲存到 favorite_community_trips
+    final List<String> favoriteList = prefs.getStringList('favorite_community_trips') ?? [];
+    final bool existsInFavorites = favoriteList.any((t) {
+      final decoded = jsonDecode(t);
+      return decoded['trip_name'] == trip['trip_name'] &&
+            decoded['start_date'] == trip['start_date'];
+    });
+
+    if (!existsInFavorites) {
+      favoriteList.add(jsonEncode(trip));
+      await prefs.setStringList('favorite_community_trips', favoriteList);
+    }
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('✅ 已成功收藏到我的行程')),
+      const SnackBar(content: Text('✅ 已成功收藏到我的行程與收藏行程')),
     );
   }
+
+
 
   void _openTripDetail(Map<String, dynamic> trip) {
     Navigator.push(
