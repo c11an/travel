@@ -45,7 +45,6 @@ class _FavoritesTripPageState extends State<FavoritesTripPage> {
     );
   }
 
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
