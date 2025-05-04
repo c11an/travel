@@ -113,32 +113,17 @@ class _TravelFormPageState extends State<TravelFormPage> {
 
     // ✅ 台灣縣市的自訂順序
     final List<String> taiwanCityOrder = [
-      "基隆市",
-      "臺北市",
-      "新北市",
-      "桃園市",
-      "新竹市",
-      "新竹縣",
-      "苗栗縣",
-      "臺中市",
-      "彰化縣",
-      "南投縣",
-      "雲林縣",
-      "嘉義市",
-      "嘉義縣",
-      "臺南市",
-      "高雄市",
-      "屏東縣",
-      "宜蘭縣",
-      "花蓮縣",
-      "臺東縣",
-      "澎湖縣",
-      "金門縣",
-      "連江縣",
+      "基隆市", "臺北市", "新北市", "桃園市", "新竹市", "新竹縣",
+      "苗栗縣", "臺中市", "彰化縣", "南投縣", "雲林縣", "嘉義市", "嘉義縣",
+      "臺南市", "高雄市", "屏東縣", "宜蘭縣", "花蓮縣", "臺東縣",
+      "澎湖縣", "金門縣", "連江縣"
     ];
 
-    // 鄉鎮排序
-    result.forEach((city, towns) => towns.sort());
+    // 鄉鎮排序並在最前加入「不限」
+    result.forEach((city, towns) {
+      towns.sort();
+      towns.insert(0, '不限');
+    });
 
     // 依照自訂順序排序城市
     final Map<String, List<String>> sortedResult = {};
@@ -153,20 +138,19 @@ class _TravelFormPageState extends State<TravelFormPage> {
     });
   }
 
+
   void _filterByCityTown() {
     if (selectedCity != null && selectedTown != null) {
       setState(() {
-        filteredSpots =
-            allSpots
-                .where(
-                  (spot) =>
-                      spot['Region'] == selectedCity &&
-                      spot['Town'] == selectedTown,
-                )
-                .toList();
+        filteredSpots = allSpots.where((spot) {
+          final regionMatch = spot['Region'] == selectedCity;
+          final townMatch = selectedTown == '不限' || spot['Town'] == selectedTown;
+          return regionMatch && townMatch;
+        }).toList();
       });
     }
   }
+
 
   void _filterByKeyword(String keyword) {
     final kw = keyword.toLowerCase();
@@ -368,165 +352,141 @@ class _TravelFormPageState extends State<TravelFormPage> {
 
   @override
   Widget build(BuildContext context) {
-    final markers =
-        filteredSpots
-            .map((spot) {
-              final lat = double.tryParse(spot['Py'] ?? '');
-              final lng = double.tryParse(spot['Px'] ?? '');
-              if (lat == null || lng == null) return null;
+    final markers = filteredSpots.map((spot) {
+      final lat = double.tryParse(spot['Py'] ?? '');
+      final lng = double.tryParse(spot['Px'] ?? '');
+      if (lat == null || lng == null) return null;
 
-              return Marker(
-                markerId: MarkerId(spot['Name'] ?? '無名'),
-                position: LatLng(lat, lng),
-                onTap: () => _showSpotDialog(spot),
-                infoWindow: InfoWindow(
-                  title: spot['Name'],
-                  snippet: spot['Add'] ?? '',
-                ),
-              );
-            })
-            .whereType<Marker>()
-            .toSet();
+      return Marker(
+        markerId: MarkerId(spot['Name'] ?? '無名'),
+        position: LatLng(lat, lng),
+        onTap: () => _showSpotDialog(spot),
+        infoWindow: InfoWindow(
+          title: spot['Name'],
+          snippet: spot['Add'] ?? '',
+        ),
+      );
+    }).whereType<Marker>().toSet();
 
     return Scaffold(
       appBar: AppBar(title: const Text('探索地圖')),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Row(
-              children: [
-                Expanded(
-                  child: DropdownButton<String>(
-                    isExpanded: true,
-                    hint: const Text("選擇縣市"),
-                    value: selectedCity,
-                    items:
-                        cityTownMap.keys.map((city) {
-                          return DropdownMenuItem(
-                            value: city,
-                            child: Text(city),
-                          );
-                        }).toList(),
-                    onChanged: (city) {
-                      setState(() {
-                        selectedCity = city;
-                        selectedTown = null;
-                        filteredSpots = [];
-                      });
-                    },
+      body: Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: DropdownButton<String>(
+                      isExpanded: true,
+                      hint: const Text("選擇縣市"),
+                      value: selectedCity,
+                      items: cityTownMap.keys.map((city) {
+                        return DropdownMenuItem(
+                          value: city,
+                          child: Text(city),
+                        );
+                      }).toList(),
+                      onChanged: (city) {
+                        setState(() {
+                          selectedCity = city;
+                          selectedTown = null;
+                          filteredSpots = [];
+                        });
+                      },
+                    ),
                   ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: DropdownButton<String>(
-                    isExpanded: true,
-                    hint: const Text("選擇鄉鎮市區"),
-                    value: selectedTown,
-                    items:
-                        selectedCity == null
-                            ? []
-                            : cityTownMap[selectedCity]!.map((town) {
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: DropdownButton<String>(
+                      isExpanded: true,
+                      hint: const Text("選擇鄉鎮市區"),
+                      value: selectedTown,
+                      items: selectedCity == null
+                          ? []
+                          : cityTownMap[selectedCity]!.map((town) {
                               return DropdownMenuItem(
                                 value: town,
                                 child: Text(town),
                               );
                             }).toList(),
-                    onChanged: (town) {
-                      setState(() {
-                        selectedTown = town;
-                        _filterByCityTown();
-                      });
-                    },
+                      onChanged: (town) {
+                        setState(() {
+                          selectedTown = town;
+                          _filterByCityTown();
+                        });
+                      },
+                    ),
                   ),
-                ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: TextField(
-              decoration: const InputDecoration(
-                hintText: '輸入關鍵字搜尋景點',
-                prefixIcon: Icon(Icons.search),
-              ),
-              onChanged: _filterByKeyword,
-            ),
-          ),
-          const SizedBox(height: 8),
-          if (filteredSpots.isNotEmpty)
-            SizedBox(
-              height: MediaQuery.of(context).size.height / 3,
-              child: GoogleMap(
-                initialCameraPosition: CameraPosition(
-                  target: currentLocation ?? const LatLng(25.0330, 121.5654),
-                  zoom: 11,
-                ),
-                markers: markers,
-                myLocationEnabled: true,
-                myLocationButtonEnabled: true,
-                zoomControlsEnabled: true,
+                ],
               ),
             ),
-          if (selectedSpots.isNotEmpty)
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-              child: SizedBox(
-                height: 80,
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: selectedSpots.length,
-                  itemBuilder: (context, index) {
-                    final spot = selectedSpots[index];
-                    return Container(
-                      margin: const EdgeInsets.only(right: 8),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.blue.shade100,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Row(
-                        children: [
-                          Text(spot['Name'] ?? '無名稱'),
-                          const SizedBox(width: 6),
-                          GestureDetector(
-                            onTap: () {
-                              setState(() {
-                                selectedSpots.removeAt(index);
-                              });
-                            },
-                            child: const Icon(
-                              Icons.delete,
-                              size: 18,
-                              color: Colors.red,
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: TextField(
+                decoration: const InputDecoration(
+                  hintText: '輸入關鍵字搜尋景點',
+                  prefixIcon: Icon(Icons.search),
                 ),
+                onChanged: _filterByKeyword,
               ),
             ),
-          const SizedBox(height: 8),
-        ],
+            const SizedBox(height: 8),
+
+            // ✅ 顯示地圖與景點列表或 fallback 訊息
+            Expanded(
+              child: filteredSpots.isNotEmpty
+                  ? Column(
+                      children: [
+                        SizedBox(
+                          height: MediaQuery.of(context).size.height / 3,
+                          child: GoogleMap(
+                            initialCameraPosition: CameraPosition(
+                              target: currentLocation ?? const LatLng(25.0330, 121.5654),
+                              zoom: 11,
+                            ),
+                            markers: markers,
+                            myLocationEnabled: true,
+                            myLocationButtonEnabled: true,
+                            zoomControlsEnabled: true,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Expanded(
+                          child: ListView.builder(
+                            itemCount: filteredSpots.length,
+                            itemBuilder: (context, index) {
+                              final spot = filteredSpots[index];
+                              return ListTile(
+                                title: Text(spot['Name'] ?? ''),
+                                subtitle: Text(spot['Add'] ?? ''),
+                                onTap: () => _showSpotDialog(spot),
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+                    )
+                  : const Center(child: Text("尚未選擇地區或沒有符合的景點")),
+            ),
+          ],
+        ),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed:
-            selectedSpots.isNotEmpty
-                ? () {
-                  Navigator.pop(context, {
-                    'selectedSpots': selectedSpots,
-                    'dayIndex': widget.dayIndex,
-                  });
-                }
-                : null,
+        onPressed: selectedSpots.isNotEmpty
+            ? () {
+                Navigator.pop(context, {
+                  'selectedSpots': selectedSpots,
+                  'dayIndex': widget.dayIndex,
+                });
+              }
+            : null,
         icon: const Icon(Icons.check),
         label: Text('完成 (${selectedSpots.length})'),
       ),
     );
   }
+
 }

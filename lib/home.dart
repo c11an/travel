@@ -17,73 +17,42 @@ Future<List<Map<String, String>>> fetchRecentEvents() async {
   final fallbackEvents = [
     {'title': '陽明山花季', 'date': '2025/05/01 ~ 2025/05/10', 'location': '陽明山公園'},
     {'title': '台南美食節', 'date': '2025/06/12 ~ 2025/06/16', 'location': '台南安平'},
-    {
-      'title': '澎湖海上煙火節',
-      'date': '2025/07/01 ~ 2025/07/05',
-      'location': '澎湖觀音亭',
-    },
-    {
-      'title': '花蓮夏戀嘉年華',
-      'date': '2025/07/15 ~ 2025/07/20',
-      'location': '花蓮東大門夜市廣場',
-    },
-    {
-      'title': '高雄駁二藝術展',
-      'date': '2025/08/05 ~ 2025/08/30',
-      'location': '高雄駁二藝術特區',
-    },
-    {
-      'title': '台中爵士音樂節',
-      'date': '2025/10/10 ~ 2025/10/20',
-      'location': '台中市民廣場',
-    },
-    {
-      'title': '南投火車市集',
-      'date': '2025/09/01 ~ 2025/09/03',
-      'location': '集集車站前廣場',
-    },
-    {
-      'title': '新北淡水燈會',
-      'date': '2025/02/10 ~ 2025/02/20',
-      'location': '新北市淡水老街',
-    },
-    {
-      'title': '宜蘭國際童玩節',
-      'date': '2025/07/01 ~ 2025/08/15',
-      'location': '宜蘭冬山河親水公園',
-    },
-    {
-      'title': '金門風獅爺文化節',
-      'date': '2025/11/01 ~ 2025/11/05',
-      'location': '金門文化園區',
-    },
+    {'title': '澎湖海上煙火節', 'date': '2025/07/01 ~ 2025/07/05', 'location': '澎湖觀音亭'},
+    {'title': '花蓮夏戀嘉年華', 'date': '2025/07/15 ~ 2025/07/20', 'location': '花蓮東大門夜市廣場'},
+    {'title': '高雄駁二藝術展', 'date': '2025/08/05 ~ 2025/08/30', 'location': '高雄駁二藝術特區'},
+    {'title': '台中爵士音樂節', 'date': '2025/10/10 ~ 2025/10/20', 'location': '台中市民廣場'},
+    {'title': '南投火車市集', 'date': '2025/09/01 ~ 2025/09/03', 'location': '集集車站前廣場'},
+    {'title': '新北淡水燈會', 'date': '2025/02/10 ~ 2025/02/20', 'location': '新北市淡水老街'},
+    {'title': '宜蘭國際童玩節', 'date': '2025/07/01 ~ 2025/08/15', 'location': '宜蘭冬山河親水公園'},
+    {'title': '金門風獅爺文化節', 'date': '2025/11/01 ~ 2025/11/05', 'location': '金門文化園區'},
   ];
 
   try {
-    final url =
-        'https://opendata.culture.tw/frontsite/trans/ActivityQueryAction.do?method=doFindTypeJ&category=6';
-    final response = await http.get(Uri.parse(url));
+    final url = Uri.parse('https://memory.culture.tw/api/Activity?category=6');
+    final response = await http.get(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer 你的API金鑰', // <-- 改成你拿到的 API 金鑰
+      },
+    );
 
     if (response.statusCode == 200) {
       final List<dynamic> data = json.decode(utf8.decode(response.bodyBytes));
+      final events = data.map<Map<String, String>>((item) {
+        final showInfo = item['showInfo'];
+        String location = '未知地點';
+        if (showInfo != null && showInfo is List && showInfo.isNotEmpty) {
+          location = showInfo[0]['location'] ?? '未知地點';
+        }
 
-      final events =
-          data.map<Map<String, String>>((item) {
-            final showInfo = item['showInfo'];
-            String location = '未知地點';
+        return {
+          'title': item['title'] ?? '',
+          'date': "${item['startDate']} ~ ${item['endDate']}",
+          'location': location,
+        };
+      }).toList();
 
-            if (showInfo != null && showInfo is List && showInfo.isNotEmpty) {
-              location = showInfo[0]['location'] ?? '未知地點';
-            }
-
-            return {
-              'title': item['title'] ?? '',
-              'date': "${item['startDate']} ~ ${item['endDate']}",
-              'location': location,
-            };
-          }).toList();
-
-      // ✅ 若抓到資料但為空，回傳 fallback
       if (events.isEmpty) {
         print('📭 API 回傳空資料，使用預設活動');
         return fallbackEvents;
