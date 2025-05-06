@@ -37,6 +37,9 @@ class _TravelFormPageState extends State<TravelFormPage> {
   String? selectedTown;
   LatLng? currentLocation;
   GoogleMapController? _mapController;
+  BitmapDescriptor? defaultMarker;
+  BitmapDescriptor? favoritedMarker;
+  BitmapDescriptor? selectedMarker;
 
   @override
   void initState() {
@@ -45,6 +48,13 @@ class _TravelFormPageState extends State<TravelFormPage> {
     _loadCountryData();
     _getUserLocation();
     _loadFavorites();
+    _loadCustomMarkers();
+  }
+
+  Future<void> _loadCustomMarkers() async {
+    defaultMarker = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed);
+    favoritedMarker = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueYellow);
+    selectedMarker = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen);
   }
 
   Future<void> _getUserLocation() async {
@@ -353,23 +363,39 @@ class _TravelFormPageState extends State<TravelFormPage> {
   @override
   Widget build(BuildContext context) {
     final markers = filteredSpots
-        .map((spot) {
-          final lat = double.tryParse(spot['Py'] ?? '');
-          final lng = double.tryParse(spot['Px'] ?? '');
-          if (lat == null || lng == null) return null;
+      .map((spot) {
+        final lat = double.tryParse(spot['Py'] ?? '');
+        final lng = double.tryParse(spot['Px'] ?? '');
+        if (lat == null || lng == null) return null;
 
-          return Marker(
-            markerId: MarkerId(spot['Name'] ?? '無名'),
-            position: LatLng(lat, lng),
-            onTap: () => _showSpotDialog(spot),
-            infoWindow: InfoWindow(
-              title: spot['Name'],
-              snippet: spot['Add'] ?? '',
-            ),
-          );
-        })
-        .whereType<Marker>()
-        .toSet();
+        // 狀態判斷
+        final isFavorited = _isFavorited(spot);
+        final isSelected = selectedSpots.any((s) => s['Name'] == spot['Name']);
+
+        // 根據狀態給圖示
+        BitmapDescriptor icon;
+        if (isSelected) {
+          icon = selectedMarker ?? BitmapDescriptor.defaultMarker;
+        } else if (isFavorited) {
+          icon = favoritedMarker ?? BitmapDescriptor.defaultMarker;
+        } else {
+          icon = defaultMarker ?? BitmapDescriptor.defaultMarker;
+        }
+
+        return Marker(
+          markerId: MarkerId(spot['Name'] ?? '無名'),
+          position: LatLng(lat, lng),
+          icon: icon,
+          onTap: () => _showSpotDialog(spot),
+          infoWindow: InfoWindow(
+            title: spot['Name'],
+            snippet: spot['Add'] ?? '',
+          ),
+        );
+      })
+      .whereType<Marker>()
+      .toSet();
+
 
     return Scaffold(
       appBar: AppBar(title: const Text('探索地圖')),
@@ -442,6 +468,7 @@ class _TravelFormPageState extends State<TravelFormPage> {
               Expanded(
                 child: Column(
                   children: [
+                    buildLegend(),
                     SizedBox(
                       height: MediaQuery.of(context).size.height / 3,
                       child: GoogleMap(
@@ -467,12 +494,22 @@ class _TravelFormPageState extends State<TravelFormPage> {
                           return ListTile(
                             title: Text(spot['Name'] ?? ''),
                             subtitle: Text(spot['Add'] ?? ''),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (_isFavorited(spot))
+                                  const Icon(Icons.star, color: Colors.amber), // 收藏
+                                if (selectedSpots.any((s) => s['Name'] == spot['Name']))
+                                  const Padding(
+                                    padding: EdgeInsets.only(left: 4),
+                                    child: Icon(Icons.event_available, color: Colors.green), // 行程
+                                  ),
+                              ],
+                            ),
                             onTap: () {
                               final lat = double.tryParse(spot['Py'] ?? '');
                               final lng = double.tryParse(spot['Px'] ?? '');
-                              if (_mapController != null &&
-                                  lat != null &&
-                                  lng != null) {
+                              if (_mapController != null && lat != null && lng != null) {
                                 _mapController!.animateCamera(
                                   CameraUpdate.newLatLng(LatLng(lat, lng)),
                                 );
@@ -480,6 +517,7 @@ class _TravelFormPageState extends State<TravelFormPage> {
                               _showSpotDialog(spot);
                             },
                           );
+
                         },
                       ),
                     ),
@@ -503,6 +541,31 @@ class _TravelFormPageState extends State<TravelFormPage> {
       ),
     );
   }
+
+  Widget buildLegend() {
+  return Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      children: [
+        legendItem(Colors.green, '加入行程'),
+        legendItem(Colors.yellow, '收藏'),
+        legendItem(Colors.red, '一般景點'),
+      ],
+    ),
+  );
+}
+
+Widget legendItem(Color color, String label) {
+  return Row(
+    children: [
+      Icon(Icons.place, color: color),
+      const SizedBox(width: 4),
+      Text(label),
+    ],
+  );
+}
+
 
 
 }
