@@ -35,8 +35,8 @@ class _TravelFormPageState extends State<TravelFormPage> {
   Map<String, List<String>> cityTownMap = {};
   String? selectedCity;
   String? selectedTown;
-
   LatLng? currentLocation;
+  GoogleMapController? _mapController;
 
   @override
   void initState() {
@@ -352,21 +352,24 @@ class _TravelFormPageState extends State<TravelFormPage> {
 
   @override
   Widget build(BuildContext context) {
-    final markers = filteredSpots.map((spot) {
-      final lat = double.tryParse(spot['Py'] ?? '');
-      final lng = double.tryParse(spot['Px'] ?? '');
-      if (lat == null || lng == null) return null;
+    final markers = filteredSpots
+        .map((spot) {
+          final lat = double.tryParse(spot['Py'] ?? '');
+          final lng = double.tryParse(spot['Px'] ?? '');
+          if (lat == null || lng == null) return null;
 
-      return Marker(
-        markerId: MarkerId(spot['Name'] ?? '無名'),
-        position: LatLng(lat, lng),
-        onTap: () => _showSpotDialog(spot),
-        infoWindow: InfoWindow(
-          title: spot['Name'],
-          snippet: spot['Add'] ?? '',
-        ),
-      );
-    }).whereType<Marker>().toSet();
+          return Marker(
+            markerId: MarkerId(spot['Name'] ?? '無名'),
+            position: LatLng(lat, lng),
+            onTap: () => _showSpotDialog(spot),
+            infoWindow: InfoWindow(
+              title: spot['Name'],
+              snippet: spot['Add'] ?? '',
+            ),
+          );
+        })
+        .whereType<Marker>()
+        .toSet();
 
     return Scaffold(
       appBar: AppBar(title: const Text('探索地圖')),
@@ -435,42 +438,54 @@ class _TravelFormPageState extends State<TravelFormPage> {
             ),
             const SizedBox(height: 8),
 
-            // ✅ 顯示地圖與景點列表或 fallback 訊息
-            Expanded(
-              child: filteredSpots.isNotEmpty
-                  ? Column(
-                      children: [
-                        SizedBox(
-                          height: MediaQuery.of(context).size.height / 3,
-                          child: GoogleMap(
-                            initialCameraPosition: CameraPosition(
-                              target: currentLocation ?? const LatLng(25.0330, 121.5654),
-                              zoom: 11,
-                            ),
-                            markers: markers,
-                            myLocationEnabled: true,
-                            myLocationButtonEnabled: true,
-                            zoomControlsEnabled: true,
-                          ),
+            if (filteredSpots.isNotEmpty)
+              Expanded(
+                child: Column(
+                  children: [
+                    SizedBox(
+                      height: MediaQuery.of(context).size.height / 3,
+                      child: GoogleMap(
+                        onMapCreated: (controller) {
+                          _mapController = controller;
+                        },
+                        initialCameraPosition: CameraPosition(
+                          target: currentLocation ?? const LatLng(25.0330, 121.5654),
+                          zoom: 11,
                         ),
-                        const SizedBox(height: 8),
-                        Expanded(
-                          child: ListView.builder(
-                            itemCount: filteredSpots.length,
-                            itemBuilder: (context, index) {
-                              final spot = filteredSpots[index];
-                              return ListTile(
-                                title: Text(spot['Name'] ?? ''),
-                                subtitle: Text(spot['Add'] ?? ''),
-                                onTap: () => _showSpotDialog(spot),
-                              );
+                        markers: markers,
+                        myLocationEnabled: true,
+                        myLocationButtonEnabled: true,
+                        zoomControlsEnabled: true,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Expanded(
+                      child: ListView.builder(
+                        itemCount: filteredSpots.length,
+                        itemBuilder: (context, index) {
+                          final spot = filteredSpots[index];
+                          return ListTile(
+                            title: Text(spot['Name'] ?? ''),
+                            subtitle: Text(spot['Add'] ?? ''),
+                            onTap: () {
+                              final lat = double.tryParse(spot['Py'] ?? '');
+                              final lng = double.tryParse(spot['Px'] ?? '');
+                              if (_mapController != null &&
+                                  lat != null &&
+                                  lng != null) {
+                                _mapController!.animateCamera(
+                                  CameraUpdate.newLatLng(LatLng(lat, lng)),
+                                );
+                              }
+                              _showSpotDialog(spot);
                             },
-                          ),
-                        ),
-                      ],
-                    )
-                  : const Center(child: Text("尚未選擇地區或沒有符合的景點")),
-            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
           ],
         ),
       ),
@@ -488,5 +503,6 @@ class _TravelFormPageState extends State<TravelFormPage> {
       ),
     );
   }
+
 
 }
