@@ -41,6 +41,8 @@ class _TravelFormPageState extends State<TravelFormPage> {
   BitmapDescriptor? favoritedMarker;
   BitmapDescriptor? selectedMarker;
 
+  String? selectedCategory = "景點"; // 預設選擇景點
+
   @override
   void initState() {
     super.initState();
@@ -84,18 +86,18 @@ class _TravelFormPageState extends State<TravelFormPage> {
     final rawData = await rootBundle.loadString('assets/data/ScenicSpot.csv');
     final csvRows = const CsvToListConverter().convert(rawData);
     final headers = csvRows.first.map((e) => e.toString()).toList();
-    final data =
-        csvRows.skip(1).map((row) {
-          return Map<String, String>.fromIterables(
-            headers,
-            row.map((e) => e.toString()),
-          );
-        }).toList();
+    final data = csvRows.skip(1).map((row) {
+      return Map<String, String>.fromIterables(
+        headers,
+        row.map((e) => e.toString()),
+      );
+    }).toList();
 
     setState(() {
       allSpots = data;
     });
   }
+
 
   Future<void> _loadCountryData() async {
     final raw = await rootBundle.loadString('assets/data/country.csv');
@@ -155,29 +157,30 @@ class _TravelFormPageState extends State<TravelFormPage> {
         filteredSpots = allSpots.where((spot) {
           final regionMatch = spot['Region'] == selectedCity;
           final townMatch = selectedTown == '不限' || spot['Town'] == selectedTown;
-          return regionMatch && townMatch;
+          final categoryMatch = spot['Category'] == selectedCategory; // 新增的篩選條件
+          return regionMatch && townMatch && categoryMatch;
         }).toList();
       });
     }
   }
 
-
   void _filterByKeyword(String keyword) {
     final kw = keyword.toLowerCase();
     setState(() {
-      filteredSpots =
-          allSpots.where((spot) {
-            final combined =
-                [
-                  spot['Name'],
-                  spot['Add'],
-                  spot['Region'],
-                  spot['Town'],
-                ].join(' ').toLowerCase();
-            return combined.contains(kw);
-          }).toList();
+      filteredSpots = allSpots.where((spot) {
+        final combined = [
+          spot['Name'],
+          spot['Add'],
+          spot['Region'],
+          spot['Town'],
+          spot['Category'], // 新增類別在篩選中
+        ].join(' ').toLowerCase();
+        final categoryMatch = spot['Category'] == selectedCategory; // 新增的篩選條件
+        return combined.contains(kw) && categoryMatch;
+      }).toList();
     });
   }
+
 
   Future<void> _loadFavorites() async {
     final prefs = await SharedPreferences.getInstance();
@@ -410,6 +413,24 @@ class _TravelFormPageState extends State<TravelFormPage> {
                   Expanded(
                     child: DropdownButton<String>(
                       isExpanded: true,
+                      hint: const Text("選擇類別"),
+                      value: selectedCategory,
+                      items: const [
+                        DropdownMenuItem(value: "景點", child: Text("景點")),
+                        DropdownMenuItem(value: "美食", child: Text("美食")),
+                      ],
+                      onChanged: (category) {
+                        setState(() {
+                          selectedCategory = category;
+                          _filterByCityTown(); // 當選擇類別時，重新篩選
+                        });
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: DropdownButton<String>(
+                      isExpanded: true,
                       hint: const Text("選擇縣市"),
                       value: selectedCity,
                       items: cityTownMap.keys.map((city) {
@@ -452,6 +473,7 @@ class _TravelFormPageState extends State<TravelFormPage> {
                 ],
               ),
             ),
+
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: TextField(
