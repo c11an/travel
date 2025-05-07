@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:travel/directions_api_test.dart';
-import 'package:travel/home.dart';
 import 'package:travel/login.dart';
 
 void main() {

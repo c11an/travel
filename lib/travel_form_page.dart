@@ -42,7 +42,6 @@ class _TravelFormPageState extends State<TravelFormPage> {
   BitmapDescriptor? selectedMarker;
 
   String? selectedCategory = "景點"; // 預設選擇景點
-
   @override
   void initState() {
     super.initState();
@@ -83,7 +82,8 @@ class _TravelFormPageState extends State<TravelFormPage> {
   }
 
   Future<void> _loadSpots() async {
-    final rawData = await rootBundle.loadString('assets/data/ScenicSpot.csv');
+    final fileName = selectedCategory == "景點" ? 'ScenicSpot.csv' : '餐飲.csv';
+    final rawData = await rootBundle.loadString('assets/data/$fileName');
     final csvRows = const CsvToListConverter().convert(rawData);
     final headers = csvRows.first.map((e) => e.toString()).toList();
     final data = csvRows.skip(1).map((row) {
@@ -95,25 +95,21 @@ class _TravelFormPageState extends State<TravelFormPage> {
 
     setState(() {
       allSpots = data;
+      filteredSpots = data;
+      _loadCountryData(); // ✅ 重新載入縣市資料
     });
   }
 
 
-  Future<void> _loadCountryData() async {
-    final raw = await rootBundle.loadString('assets/data/country.csv');
-    final rows = const CsvToListConverter().convert(raw);
-    final headers = rows.first.map((e) => e.toString()).toList();
-    final data = rows.skip(1).map((row) {
-      return Map<String, String>.fromIterables(
-        headers,
-        row.map((e) => e.toString()),
-      );
-    });
 
+
+
+  Future<void> _loadCountryData() async {
+    // 直接使用 allSpots 而不是重新讀取檔案
     final Map<String, List<String>> result = {};
-    for (var row in data) {
-      final city = row['縣市']?.replaceAll('台', '臺') ?? '';
-      final town = row['鄉鎮市']?.replaceAll('台', '臺') ?? '';
+    for (var spot in allSpots) {
+      final city = spot['Region'] ?? '';
+      final town = spot['Town'] ?? '';
 
       if (city.isEmpty || town.isEmpty) continue;
 
@@ -147,22 +143,24 @@ class _TravelFormPageState extends State<TravelFormPage> {
 
     setState(() {
       cityTownMap = sortedResult;
+      selectedCity = null; // ✅ 重置選擇
+      selectedTown = null;
     });
   }
 
 
+
+
   void _filterByCityTown() {
-    if (selectedCity != null && selectedTown != null) {
-      setState(() {
-        filteredSpots = allSpots.where((spot) {
-          final regionMatch = spot['Region'] == selectedCity;
-          final townMatch = selectedTown == '不限' || spot['Town'] == selectedTown;
-          final categoryMatch = spot['Category'] == selectedCategory; // 新增的篩選條件
-          return regionMatch && townMatch && categoryMatch;
-        }).toList();
-      });
-    }
+    setState(() {
+      filteredSpots = allSpots.where((spot) {
+        final regionMatch = selectedCity == null || selectedCity == '不限' || spot['Region'] == selectedCity;
+        final townMatch = selectedTown == null || selectedTown == '不限' || spot['Town'] == selectedTown;
+        return regionMatch && townMatch;
+      }).toList();
+    });
   }
+
 
   void _filterByKeyword(String keyword) {
     final kw = keyword.toLowerCase();
@@ -173,10 +171,8 @@ class _TravelFormPageState extends State<TravelFormPage> {
           spot['Add'],
           spot['Region'],
           spot['Town'],
-          spot['Category'], // 新增類別在篩選中
         ].join(' ').toLowerCase();
-        final categoryMatch = spot['Category'] == selectedCategory; // 新增的篩選條件
-        return combined.contains(kw) && categoryMatch;
+        return combined.contains(kw);
       }).toList();
     });
   }
@@ -412,8 +408,6 @@ class _TravelFormPageState extends State<TravelFormPage> {
                 children: [
                   Expanded(
                     child: DropdownButton<String>(
-                      isExpanded: true,
-                      hint: const Text("選擇類別"),
                       value: selectedCategory,
                       items: const [
                         DropdownMenuItem(value: "景點", child: Text("景點")),
@@ -422,7 +416,7 @@ class _TravelFormPageState extends State<TravelFormPage> {
                       onChanged: (category) {
                         setState(() {
                           selectedCategory = category;
-                          _filterByCityTown(); // 當選擇類別時，重新篩選
+                          _loadSpots(); // ✅ 根據選擇類別重新載入資料和縣市
                         });
                       },
                     ),
