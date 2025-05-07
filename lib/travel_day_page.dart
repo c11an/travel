@@ -1,7 +1,8 @@
 import 'dart:math';
-
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'travel_form_page.dart';
 import 'map_view_page.dart'; // ⭐️ 要新增的地圖顯示頁面
 
@@ -141,7 +142,7 @@ class _TravelDayPageState extends State<TravelDayPage>
     );
   }
 
-  void _saveTrip() {
+  void _saveTrip() async {
     final tripData = {
       'trip_name': widget.tripName,
       'start_date': DateFormat('yyyy-MM-dd').format(widget.startDate),
@@ -152,8 +153,16 @@ class _TravelDayPageState extends State<TravelDayPage>
       'daily_transports': dailyTransports,
     };
 
-    Navigator.pop(context, tripData);
+    final prefs = await SharedPreferences.getInstance();
+    final tripList = prefs.getStringList('trip_list') ?? [];
+    tripList.add(jsonEncode(tripData));
+    await prefs.setStringList('trip_list', tripList);
+
+    if (mounted) {
+      Navigator.pop(context, tripData); // 返回並傳回行程資料
+    }
   }
+
 
   void _showSpotDetail(Map<String, String> spot) {
     final name = spot['Name'] ?? '無名稱';

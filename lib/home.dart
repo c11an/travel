@@ -179,8 +179,9 @@ class _HomePageState extends State<HomePage> {
     super.initState();
     _startAutoSlide();
     _loadCityTownData();
-    _loadSavedTrips();
+    _loadTripsFromStorage();
   }
+
 
   void _startAutoSlide() {
     Future.delayed(const Duration(seconds: 4), () {
@@ -277,11 +278,31 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
+  Future<void> _loadTripsFromStorage() async {
+    final prefs = await SharedPreferences.getInstance();
+    final tripListString = prefs.getStringList('trip_list') ?? [];
+    setState(() {
+      _savedTrips = tripListString
+          .map((e) => jsonDecode(e) as Map<String, dynamic>)
+          .toSet() // 避免重複
+          .toList();
+    });
+  }
+
+
+
+
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
     });
+
+    // 在切換回首頁時重新載入行程
+    if (index == 0) {
+      _loadTripsFromStorage();
+    }
   }
+
 
   void _launchURL(String url) async {
     final Uri uri = Uri.parse(url);
@@ -362,35 +383,36 @@ class _HomePageState extends State<HomePage> {
                     if (_savedTrips.isEmpty)
                       const Text('目前沒有旅遊規劃紀錄', style: TextStyle(color: Colors.grey)),
                     ..._savedTrips.map((trip) => ListTile(
-                          title: Text(trip['trip_name'] ?? '未命名行程'),
-                          subtitle: Text("📅 ${trip['start_date']} ~ ${trip['end_date']}"),
-                          trailing: const Icon(Icons.chevron_right),
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => TravelDayPage(
-                                  tripName: trip['trip_name'],
-                                  startDate: DateTime.parse(trip['start_date']),
-                                  endDate: DateTime.parse(trip['end_date']),
-                                  budget: trip['budget'],
-                                  transport: trip['transport'],
-                                  initialSpots: (trip['daily_spots'] as List)
-                                      .map<List<Map<String, String>>>((day) => (day as List)
-                                          .map<Map<String, String>>((s) =>
-                                              Map<String, String>.from(s))
-                                          .toList())
-                                      .toList(),
-                                  initialTransports: (trip['daily_transports'] as List)
-                                      .map<List<String>>((tList) =>
-                                          (tList as List).map<String>((t) => t.toString()).toList())
-                                      .toList(),
-                                  readOnly: true,
-                                ),
+                        title: Text(trip['trip_name'] ?? '未命名行程'),
+                        subtitle: Text("📅 ${trip['start_date']} ~ ${trip['end_date']}"),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => TravelDayPage(
+                                tripName: trip['trip_name'],
+                                startDate: DateTime.parse(trip['start_date']),
+                                endDate: DateTime.parse(trip['end_date']),
+                                budget: trip['budget'],
+                                transport: trip['transport'],
+                                initialSpots: (trip['daily_spots'] as List)
+                                    .map<List<Map<String, String>>>((day) => (day as List)
+                                        .map<Map<String, String>>((s) => Map<String, String>.from(s))
+                                        .toList())
+                                    .toList(),
+                                initialTransports: (trip['daily_transports'] as List)
+                                    .map<List<String>>((list) => List<String>.from(list))
+                                    .toList(),
+                                readOnly: true,
                               ),
-                            );
-                          },
-                        )),
+                            ),
+                          ).then((_) {
+                            _loadTripsFromStorage(); // 回到首頁後即時更新行程
+                          });
+                        },
+                      )),
+
                     const SizedBox(height: 10),
                     ElevatedButton(
                       onPressed: () => _onItemTapped(2),
