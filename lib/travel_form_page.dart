@@ -82,30 +82,42 @@ class _TravelFormPageState extends State<TravelFormPage> {
   }
 
   Future<void> _loadSpots() async {
-    final fileName = selectedCategory == "景點" ? 'ScenicSpot.csv' : '餐飲.csv';
-    final rawData = await rootBundle.loadString('assets/data/$fileName');
-    final csvRows = const CsvToListConverter().convert(rawData);
-    final headers = csvRows.first.map((e) => e.toString()).toList();
-    final data = csvRows.skip(1).map((row) {
-      return Map<String, String>.fromIterables(
-        headers,
-        row.map((e) => e.toString()),
-      );
-    }).toList();
+    try {
+      final fileName = selectedCategory == "景點" ? 'ScenicSpot.csv' : '餐飲.csv';
+      final rawData = await rootBundle.loadString('assets/data/$fileName');
+      final csvRows = const CsvToListConverter().convert(rawData);
+      final headers = csvRows.first.map((e) => e.toString()).toList();
+      
+      // 清除之前的資料
+      allSpots.clear();
+      filteredSpots.clear();
 
-    setState(() {
-      allSpots = data;
-      filteredSpots = data;
-      _loadCountryData(); // ✅ 重新載入縣市資料
-    });
+      // 讀取資料
+      final data = csvRows.skip(1).map((row) {
+        return Map<String, String>.fromIterables(
+          headers,
+          row.map((e) => e.toString()),
+        );
+      }).toList();
+
+      setState(() {
+        allSpots = data;
+        filteredSpots = data;
+      });
+
+      // ✅ 重新載入縣市資料（這裡應該放在 setState 外）
+      _loadCountryData();
+    } catch (e) {
+      print('❌ 無法載入資料檔案：$e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('❌ 無法載入資料，請確認檔案存在')),
+      );
+    }
   }
 
 
-
-
-
   Future<void> _loadCountryData() async {
-    // 直接使用 allSpots 而不是重新讀取檔案
+    // 直接從 allSpots 載入 Region 和 Town
     final Map<String, List<String>> result = {};
     for (var spot in allSpots) {
       final city = spot['Region'] ?? '';
@@ -148,9 +160,6 @@ class _TravelFormPageState extends State<TravelFormPage> {
     });
   }
 
-
-
-
   void _filterByCityTown() {
     setState(() {
       filteredSpots = allSpots.where((spot) {
@@ -161,16 +170,15 @@ class _TravelFormPageState extends State<TravelFormPage> {
     });
   }
 
-
   void _filterByKeyword(String keyword) {
     final kw = keyword.toLowerCase();
     setState(() {
       filteredSpots = allSpots.where((spot) {
         final combined = [
-          spot['Name'],
-          spot['Add'],
-          spot['Region'],
-          spot['Town'],
+          spot['Name'] ?? '',
+          spot['Add'] ?? '',
+          spot['Region'] ?? '',
+          spot['Town'] ?? ''
         ].join(' ').toLowerCase();
         return combined.contains(kw);
       }).toList();

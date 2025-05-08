@@ -76,10 +76,10 @@ flutter:
     - assets/images/Alishan.jpg
     - assets/data/景點.csv
     - assets/data/步道.csv
-    - assets/data/餐飲.csv
     - assets/data/自行車道.csv
     - assets/data/活動.csv
     - assets/data/住宿.csv
+    - assets/data/餐飲.csv
     - assets/data/旅遊服務站點.csv
     - assets/data/ScenicSpot.csv
     - assets\data/country.csv
