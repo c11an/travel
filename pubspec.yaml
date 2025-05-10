@@ -82,7 +82,9 @@ flutter:
     - assets/data/餐飲.csv
     - assets/data/旅遊服務站點.csv
     - assets/data/ScenicSpot.csv
-    - assets\data/country.csv
+    - assets/data/country.csv
+    - assets/data/Restaurant.csv
+    
     
 
 

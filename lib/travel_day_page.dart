@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:travel/travel_note_page.dart';
 import 'travel_form_page.dart';
 import 'map_view_page.dart'; // ⭐️ 要新增的地圖顯示頁面
 
@@ -200,6 +201,8 @@ class _TravelDayPageState extends State<TravelDayPage>
     );
   }
 
+  int _currentDayIndex = 0; // ✅ 新增：用來追蹤目前選擇的日期
+
   @override
   Widget build(BuildContext context) {
     final tripDuration =
@@ -211,8 +214,20 @@ class _TravelDayPageState extends State<TravelDayPage>
         bottom: TabBar(
           controller: _tabController,
           isScrollable: true,
+          onTap: (index) {
+            setState(() {
+              _currentDayIndex = index; // ✅ 更新目前選擇的日期
+            });
+          },
           tabs: List.generate(dayCount, (i) => Tab(text: 'Day ${i + 1}')),
         ),
+        actions: [
+          IconButton(
+            onPressed: () => _showNotes(viewOnly: true, dayIndex: _currentDayIndex),
+            icon: const Icon(Icons.notes),
+            tooltip: "查看心得",
+          ),
+        ],
       ),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -246,7 +261,7 @@ class _TravelDayPageState extends State<TravelDayPage>
                                 label: const Text("探索新增景點"),
                               ),
                             ),
-                          if (!widget.readOnly) const SizedBox(width: 12),
+                          const SizedBox(width: 12),
                           Expanded(
                             child: ElevatedButton.icon(
                               onPressed: () => _showMap(dayIndex),
@@ -254,99 +269,56 @@ class _TravelDayPageState extends State<TravelDayPage>
                               label: const Text("在地圖查看"),
                             ),
                           ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: () => _showNotes(viewOnly: true, dayIndex: dayIndex),
+                              icon: const Icon(Icons.notes),
+                              label: const Text("查看心得"),
+                            ),
+                          ),
                         ],
                       ),
                     ),
-
                     Expanded(
                       child: spots.isEmpty
                           ? const Center(
                               child: Text(
                                 '今日尚未安排景點',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  color: Colors.grey,
-                                ),
+                                style: TextStyle(fontSize: 16, color: Colors.grey),
                               ),
                             )
-                          : ReorderableListView(
-                              onReorder: (oldIndex, newIndex) {
-                                setState(() {
-                                  if (newIndex > oldIndex) newIndex -= 1;
-                                  final spot = spots.removeAt(oldIndex);
-                                  spots.insert(newIndex, spot);
-                                  _generateTransports();
-                                });
-                              },
-                              children: List.generate(spots.length, (index) {
+                          : ListView.builder(
+                              itemCount: spots.length,
+                              itemBuilder: (context, index) {
                                 final spot = spots[index];
-                                return Dismissible(
-                                  key: ValueKey(spot['Name'] ?? '$index'),
-                                  direction: DismissDirection.endToStart,
-                                  background: Container(
-                                    color: Colors.red,
-                                    alignment: Alignment.centerRight,
-                                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                                    child: const Icon(Icons.delete, color: Colors.white),
+                                return Card(
+                                  margin: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 6,
                                   ),
-                                  confirmDismiss: (direction) async {
-                                    return await showDialog(
-                                      context: context,
-                                      builder: (context) => AlertDialog(
-                                        title: const Text('刪除景點'),
-                                        content: const Text('確定要刪除這個景點嗎？'),
-                                        actions: [
-                                          TextButton(
-                                            onPressed: () => Navigator.of(context).pop(false),
-                                            child: const Text('取消'),
-                                          ),
-                                          TextButton(
-                                            onPressed: () => Navigator.of(context).pop(true),
-                                            child: const Text('刪除'),
-                                          ),
-                                        ],
-                                      ),
-                                    );
-                                  },
-                                  onDismissed: (_) {
-                                    setState(() {
-                                      spots.removeAt(index);
-                                      _generateTransports();
-                                    });
-                                    _showDeletedMessage();
-                                  },
-                                  child: Card(
-                                    margin: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 6,
-                                    ),
-                                    child: ListTile(
-                                      title: Text(spot['Name'] ?? '無名稱'),
-                                      subtitle: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text('${spot['Region'] ?? ''} ${spot['Town'] ?? ''}'),
-                                          if (index < (dailyTransports[dayIndex].length ?? 0))
-                                            Padding(
-                                              padding: const EdgeInsets.only(top: 4),
-                                              child: Text(
-                                                dailyTransports[dayIndex][index],
-                                                style: const TextStyle(fontSize: 12, color: Colors.grey),
-                                              ),
+                                  child: ListTile(
+                                    title: Text(spot['Name'] ?? '無名稱'),
+                                    subtitle: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text('${spot['Region'] ?? ''} ${spot['Town'] ?? ''}'),
+                                        if (index < (dailyTransports[dayIndex].length ?? 0))
+                                          Padding(
+                                            padding: const EdgeInsets.only(top: 4),
+                                            child: Text(
+                                              dailyTransports[dayIndex][index],
+                                              style: const TextStyle(fontSize: 12, color: Colors.grey),
                                             ),
-                                        ],
-                                      ),
-                                      trailing: ReorderableDragStartListener(
-                                        index: index,
-                                        child: const Icon(Icons.drag_handle),
-                                      ),
-                                      onTap: () => _showSpotDetail(spot),
+                                          ),
+                                      ],
                                     ),
+                                    onTap: () => _showSpotDetail(spot),
                                   ),
                                 );
-                              }),
+                              },
+                            ),
                     ),
-                  )
                   ],
                 );
               }),
@@ -354,16 +326,37 @@ class _TravelDayPageState extends State<TravelDayPage>
           ),
         ],
       ),
-      bottomNavigationBar: widget.readOnly
-          ? null
-          : Padding(
-              padding: const EdgeInsets.all(12),
-              child: ElevatedButton.icon(
-                onPressed: _saveTrip,
-                icon: const Icon(Icons.check),
-                label: const Text("儲存行程"),
-              ),
-            ),
+      bottomNavigationBar: Padding(
+        padding: const EdgeInsets.all(12),
+        child: ElevatedButton.icon(
+          onPressed: () => _showNotes(viewOnly: false, dayIndex: _currentDayIndex),
+          icon: const Icon(Icons.note_add),
+          label: const Text("新增心得"),
+        ),
+      ),
     );
   }
+
+  /// 跳轉到撰寫或查看心得頁面
+  void _showNotes({required bool viewOnly, required int dayIndex}) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => TravelNotePage(
+          dailySpots: dailySpots,
+          dayIndex: dayIndex,
+          readOnly: viewOnly,
+        ),
+      ),
+    ).then((updatedSpots) {
+      if (updatedSpots != null) {
+        setState(() {
+          dailySpots = updatedSpots;
+        });
+      }
+    });
+  }
+
+
+
 }
