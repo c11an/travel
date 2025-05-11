@@ -8,6 +8,10 @@ class AIRecommendResultPage extends StatefulWidget {
   final double? budget;
   final String? transport;
   final List<String>? types;
+  final List<Map<String, String>> spots;
+  final DateTime? startDate;
+  final DateTime? endDate;
+  final String? gptRecommendation;
 
   const AIRecommendResultPage({
     super.key,
@@ -15,6 +19,10 @@ class AIRecommendResultPage extends StatefulWidget {
     this.budget,
     this.transport,
     this.types,
+    required this.spots,
+    this.startDate,
+    this.endDate,
+    this.gptRecommendation,
   });
 
   @override
@@ -28,36 +36,21 @@ class _AIRecommendResultPageState extends State<AIRecommendResultPage> {
   @override
   void initState() {
     super.initState();
-    _loadSpotData();
+    _loadRecommendedSpots();
   }
 
-  Future<void> _loadSpotData() async {
-    final rawData = await rootBundle.loadString('assets/data/ScenicSpot.csv');
-    List<List<dynamic>> csvTable = const CsvToListConverter().convert(rawData, eol: '\n');
-
-    // 取表頭
-    final headers = csvTable.first.map((e) => e.toString()).toList();
-
-    final List<Map<String, dynamic>> spots = [];
-
-    for (var row in csvTable.skip(1)) {
-      final spot = Map<String, dynamic>.fromIterables(
-        headers,
-        row.map((e) => e.toString()),
-      );
-
-      spots.add({
-        'name': spot['名稱'] ?? '',
-        'type': spot['類型'] ?? '',
-        'location': spot['地點'] ?? '',
-        'imageUrl': spot['圖片網址'] ?? '',
-        'rating': double.tryParse(spot['評分'] ?? '4.5') ?? 4.5,
-        'description': spot['簡介'] ?? '',
-      });
-    }
-
+  void _loadRecommendedSpots() {
     setState(() {
-      recommendedSpots = spots;
+      recommendedSpots = widget.spots.map((spot) {
+        return {
+          'name': spot['Name'] ?? '',
+          'type': spot['Category'] ?? '',
+          'location': spot['Region'] ?? '',
+          'imageUrl': spot['Picture1'] ?? '',
+          'rating': 4.5,
+          'description': spot['Description'] ?? '沒有描述',
+        };
+      }).toList();
     });
   }
 
@@ -73,6 +66,27 @@ class _AIRecommendResultPageState extends State<AIRecommendResultPage> {
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
+                  // 🔥 顯示 GPT 生成的推薦行程（如果有）
+                  if (widget.gptRecommendation != null) ...[
+                    Text(
+                      '🔮 GPT 推薦行程',
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        widget.gptRecommendation!,
+                        style: const TextStyle(fontSize: 14),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
                   // 🔥 推薦條件簡述
                   Align(
                     alignment: Alignment.centerLeft,
@@ -102,34 +116,28 @@ class _AIRecommendResultPageState extends State<AIRecommendResultPage> {
                           child: ListTile(
                             leading: ClipRRect(
                               borderRadius: BorderRadius.circular(8),
-                              child: Image.network(
-                                spot['imageUrl'],
-                                width: 60,
-                                height: 60,
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) => Container(
-                                  width: 60,
-                                  height: 60,
-                                  color: Colors.grey,
-                                  child: const Icon(Icons.image_not_supported),
-                                ),
-                              ),
+                              child: spot['imageUrl'] != null && spot['imageUrl']!.isNotEmpty
+                                  ? Image.network(
+                                      spot['imageUrl'],
+                                      width: 60,
+                                      height: 60,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (context, error, stackTrace) => Container(
+                                        width: 60,
+                                        height: 60,
+                                        color: Colors.grey,
+                                        child: const Icon(Icons.image_not_supported),
+                                      ),
+                                    )
+                                  : Container(
+                                      width: 60,
+                                      height: 60,
+                                      color: Colors.grey,
+                                      child: const Icon(Icons.image),
+                                    ),
                             ),
                             title: Text(spot['name']),
-                            subtitle: Row(
-                              children: [
-                                ...List.generate(5, (i) {
-                                  final rating = spot['rating'] ?? 0.0;
-                                  return Icon(
-                                    i < rating.round()
-                                        ? Icons.star
-                                        : Icons.star_border,
-                                    size: 18,
-                                    color: Colors.amber,
-                                  );
-                                }),
-                              ],
-                            ),
+                            subtitle: Text(spot['location']),
                             trailing: IconButton(
                               icon: Icon(
                                 isFavorite ? Icons.favorite : Icons.favorite_border,

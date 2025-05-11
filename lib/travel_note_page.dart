@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class TravelNotePage extends StatefulWidget {
-  final List<List<Map<String, String>>> dailySpots;
+  final List<Map<String, String>> dailySpots;
   final int dayIndex;
   final bool readOnly;
 
@@ -21,54 +21,23 @@ class TravelNotePage extends StatefulWidget {
 class _TravelNotePageState extends State<TravelNotePage> {
   List<TextEditingController> noteControllers = [];
 
-  void _initializeNoteControllers() {
-    noteControllers = widget.dailySpots[widget.dayIndex]
-        .map((spot) => TextEditingController(
-            text: widget.readOnly ? (spot['note'] ?? '') : '', // ✅ 新增模式預設空白
-          ))
-      .toList();
-  }
-
   @override
   void initState() {
     super.initState();
-    _initializeNoteControllers();
+    _initializeControllers();
   }
 
-  void _saveNotes() async {
-    for (int i = 0; i < widget.dailySpots[widget.dayIndex].length; i++) {
-      widget.dailySpots[widget.dayIndex][i]['note'] = noteControllers[i].text;
+  void _initializeControllers() {
+    noteControllers = widget.dailySpots
+        .map((spot) => TextEditingController(text: spot['note'] ?? ''))
+        .toList();
+  }
+
+  void _saveNotes() {
+    for (int i = 0; i < widget.dailySpots.length; i++) {
+      widget.dailySpots[i]['note'] = noteControllers[i].text;
     }
-    // 保存到本地
-    await _saveNotesToLocal();
-    Navigator.pop(context, widget.dailySpots);
-  }
-
-  Future<void> _saveNotesToLocal() async {
-    final prefs = await SharedPreferences.getInstance();
-    final noteData = widget.dailySpots.map((day) {
-      return day.map((spot) => jsonEncode(spot)).toList();
-    }).toList();
-    await prefs.setStringList('travel_notes_${widget.dayIndex}', noteData[widget.dayIndex]);
-  }
-
-  Future<void> _loadNotesFromLocal() async {
-    final prefs = await SharedPreferences.getInstance();
-    final noteData = prefs.getStringList('travel_notes_${widget.dayIndex}');
-    if (noteData != null) {
-      setState(() {
-        for (int i = 0; i < widget.dailySpots[widget.dayIndex].length; i++) {
-          widget.dailySpots[widget.dayIndex][i]['note'] = jsonDecode(noteData[i])['note'] ?? '';
-          noteControllers[i].text = widget.dailySpots[widget.dayIndex][i]['note'] ?? '';
-        }
-      });
-    }
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _loadNotesFromLocal();
+    Navigator.pop(context, widget.dailySpots); // ✅ 回傳已儲存的心得
   }
 
   @override
@@ -86,9 +55,9 @@ class _TravelNotePageState extends State<TravelNotePage> {
         title: Text("Day ${widget.dayIndex + 1} - ${widget.readOnly ? '查看心得' : '新增心得'}"),
       ),
       body: ListView.builder(
-        itemCount: widget.dailySpots[widget.dayIndex].length,
+        itemCount: widget.dailySpots.length,
         itemBuilder: (context, index) {
-          final spot = widget.dailySpots[widget.dayIndex][index];
+          final spot = widget.dailySpots[index];
           return Card(
             margin: const EdgeInsets.all(8),
             child: ListTile(
@@ -119,3 +88,4 @@ class _TravelNotePageState extends State<TravelNotePage> {
     );
   }
 }
+
