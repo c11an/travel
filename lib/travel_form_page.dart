@@ -83,7 +83,9 @@ class _TravelFormPageState extends State<TravelFormPage> {
 
   Future<void> _loadSpots() async {
     try {
-      final fileName = selectedCategory == "景點" ? 'ScenicSpot.csv' : 'Restaurant.csv';
+      final fileName = selectedCategory == "景點" ? 'ScenicSpot.csv' 
+                : selectedCategory == "美食" ? '餐飲.csv' 
+                : 'Hotel.csv';
       final rawData = await rootBundle.loadString('assets/data/$fileName');
       final csvRows = const CsvToListConverter().convert(rawData);
       final headers = csvRows.first.map((e) => e.toString()).toList();
@@ -420,6 +422,7 @@ class _TravelFormPageState extends State<TravelFormPage> {
                       items: const [
                         DropdownMenuItem(value: "景點", child: Text("景點")),
                         DropdownMenuItem(value: "美食", child: Text("美食")),
+                        // DropdownMenuItem(value: "住宿", child: Text("住宿")),
                       ],
                       onChanged: (category) {
                         setState(() {

@@ -60,6 +60,9 @@ class _TravelDayPageState extends State<TravelDayPage>
     );
 
     _generateTransports();
+
+    // super.initState();
+    _loadNotesFromStorage(); // ✅ 載入儲存的心得
   }
 
   void _generateTransports() {
@@ -339,24 +342,51 @@ class _TravelDayPageState extends State<TravelDayPage>
 
   /// 跳轉到撰寫或查看心得頁面
   void _showNotes({required bool viewOnly, required int dayIndex}) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => TravelNotePage(
-          dailySpots: dailySpots,
-          dayIndex: dayIndex,
-          readOnly: viewOnly,
+  Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (_) => TravelNotePage(
+        dailySpots: dailySpots[dayIndex],
+        dayIndex: dayIndex,
+        readOnly: viewOnly,
+      ),
+    ),
+  ).then((updatedSpots) {
+    if (updatedSpots != null) {
+      setState(() {
+        dailySpots[dayIndex] = updatedSpots;
+        _saveNotesToStorage(); // ✅ 儲存心得
+      });
+    }
+  });
+}
+
+// ✅ 新增儲存心得到 SharedPreferences
+Future<void> _saveNotesToStorage() async {
+  final prefs = await SharedPreferences.getInstance();
+  final tripName = widget.tripName;
+  final encodedNotes = jsonEncode(dailySpots);
+  await prefs.setString('notes_$tripName', encodedNotes);
+}
+
+// ✅ 載入儲存的心得
+Future<void> _loadNotesFromStorage() async {
+  final prefs = await SharedPreferences.getInstance();
+  final tripName = widget.tripName;
+  final storedNotes = prefs.getString('notes_$tripName');
+
+  if (storedNotes != null) {
+    final decodedNotes = List<List<Map<String, String>>>.from(
+      jsonDecode(storedNotes).map(
+        (day) => List<Map<String, String>>.from(
+          day.map<Map<String, String>>((spot) => Map<String, String>.from(spot)),
         ),
       ),
-    ).then((updatedSpots) {
-      if (updatedSpots != null) {
-        setState(() {
-          dailySpots = updatedSpots;
-        });
-      }
+    );
+
+    setState(() {
+      dailySpots = decodedNotes;
     });
   }
-
-
-
+}
 }
