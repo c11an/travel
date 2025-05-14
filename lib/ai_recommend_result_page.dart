@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show rootBundle;
-import 'package:csv/csv.dart';
 import 'package:travel/spot_detail_page.dart'; // ⭐記得import
 
 class AIRecommendResultPage extends StatefulWidget {

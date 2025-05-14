@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -84,8 +85,7 @@ class _TravelFormPageState extends State<TravelFormPage> {
   Future<void> _loadSpots() async {
     try {
       final fileName = selectedCategory == "景點" ? 'ScenicSpot.csv' 
-                : selectedCategory == "美食" ? '餐飲.csv' 
-                : 'Hotel.csv';
+                : 'Restaurant.csv' ;
       final rawData = await rootBundle.loadString('assets/data/$fileName');
       final csvRows = const CsvToListConverter().convert(rawData);
       final headers = csvRows.first.map((e) => e.toString()).toList();
@@ -224,18 +224,30 @@ class _TravelFormPageState extends State<TravelFormPage> {
 
     String imageUrl = '';
     try {
-      final pictureJson = spot['Picture1'];
-      if (pictureJson != null && pictureJson.isNotEmpty) {
-        final parsed = json.decode(pictureJson);
-        imageUrl = parsed['src'] ?? '';
+      final pictureField = spot['Picture1'];
+      print("🖼️ Picture1: $pictureField"); // Debug 用
+      if (pictureField != null && pictureField.isNotEmpty) {
+        if (pictureField.trim().startsWith('{')) {
+          // 如果是 JSON 格式（舊版格式）
+          final parsed = json.decode(pictureField);
+          imageUrl = parsed['src'] ?? '';
+        } else if (pictureField.startsWith('http')) {
+          // ✅ 你的格式會走到這裡
+          imageUrl = pictureField;
+        }
       }
-    } catch (_) {
+    } catch (e) {
+      print('⚠️ 圖片處理錯誤: $e');
       imageUrl = '';
     }
 
     showDialog(
       context: context,
       builder: (context) {
+        final description = (spot['Description']?.trim().isNotEmpty ?? false)
+            ? spot['Description']
+            : (spot['Toldescribe'] ?? '❌ 沒有描述資料');
+
         return AlertDialog(
           title: Text(spot['Name'] ?? '無名稱'),
           content: Column(
@@ -250,11 +262,15 @@ class _TravelFormPageState extends State<TravelFormPage> {
               if (imageUrl.startsWith('http'))
                 ClipRRect(
                   borderRadius: BorderRadius.circular(8),
-                  child: Image.network(
-                    imageUrl,
+                  child: SizedBox(
                     height: 150,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
+                    width: MediaQuery.of(context).size.width * 0.8,
+                    child: CachedNetworkImage(
+                      imageUrl: imageUrl,
+                      fit: BoxFit.cover,
+                      placeholder: (context, url) => const CircularProgressIndicator(),
+                      errorWidget: (context, url, error) => const Icon(Icons.error),
+                    ),
                   ),
                 )
               else
@@ -288,23 +304,50 @@ class _TravelFormPageState extends State<TravelFormPage> {
               },
               child: Text(alreadyFavorited ? '⭐ 移除收藏' : '⭐ 加入收藏'),
             ),
+            if (!widget.browseOnly)
+              TextButton(
+                onPressed: () {
+                  setState(() {
+                    if (alreadyAdded) {
+                      selectedSpots.removeWhere((s) => s['Name'] == spot['Name']);
+                    } else {
+                      selectedSpots.add(spot);
+                    }
+                  });
+                  Navigator.pop(context);
+                },
+                child: Text(alreadyAdded ? '❌ 移除行程' : '✅ 加入行程'),
+              ),
             TextButton(
               onPressed: () {
-                setState(() {
-                  if (alreadyAdded) {
-                    selectedSpots.removeWhere((s) => s['Name'] == spot['Name']);
-                  } else {
-                    selectedSpots.add(spot);
-                  }
-                });
-                Navigator.pop(context);
+                final description = (spot['Toldescribe']?.trim().isNotEmpty ?? false)
+                    ? spot['Toldescribe']
+                    : (spot['Description'] ?? '❌ 沒有描述資料');
+
+                showDialog(
+                  context: context,
+                  builder: (_) => AlertDialog(
+                    title: const Text("📘 景點資訊"),
+                    content: SingleChildScrollView(
+                      child: Text(description ?? '❌ 沒有描述資料'),
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text("關閉"),
+                      ),
+                    ],
+                  ),
+                );
               },
-              child: Text(alreadyAdded ? '❌ 移除行程' : '✅ 加入行程'),
+              child: const Text("📘 資訊"),
             ),
           ],
+
         );
       },
     );
+
   }
 
   void _goToSchedulePage() async {
@@ -554,18 +597,20 @@ class _TravelFormPageState extends State<TravelFormPage> {
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: selectedSpots.isNotEmpty
-            ? () {
-                Navigator.pop(context, {
-                  'selectedSpots': selectedSpots,
-                  'dayIndex': widget.dayIndex,
-                });
-              }
-            : null,
-        icon: const Icon(Icons.check),
-        label: Text('完成 (${selectedSpots.length})'),
-      ),
+      floatingActionButton: widget.browseOnly
+      ? null
+      : FloatingActionButton.extended(
+          onPressed: selectedSpots.isNotEmpty
+              ? () {
+                  Navigator.pop(context, {
+                    'selectedSpots': selectedSpots,
+                    'dayIndex': widget.dayIndex,
+                  });
+                }
+              : null,
+          icon: const Icon(Icons.check),
+          label: Text('完成 (${selectedSpots.length})'),
+        ),
     );
   }
 
