@@ -1,8 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:travel/login.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized(); // ✅ 確保初始化完成
+
+  try {
+    await dotenv.load(fileName: ".env"); // ✅ 開啟 .env
+  } catch (e) {
+    print("❌ 無法載入 .env: $e");
+  }
+
   runApp(const MyApp());
 }
 
@@ -17,7 +26,7 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-  ThemeMode _themeMode = ThemeMode.light; // 預設是亮色模式
+  ThemeMode _themeMode = ThemeMode.light;
 
   @override
   void initState() {
@@ -50,24 +59,22 @@ class _MyAppState extends State<MyApp> {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: '旅遊應用',
-      themeMode: _themeMode, // ⭐️ 這裡支援切換
-        theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: Colors.blue,
-            brightness: Brightness.light, // ⭐️ 這行一定要加！
-          ),
-          useMaterial3: true,
+      themeMode: _themeMode,
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Colors.blue,
+          brightness: Brightness.light,
         ),
-        
-        darkTheme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: Colors.deepPurple,
-            brightness: Brightness.dark, // ⭐️ 這行一定要加！
-          ),
-          useMaterial3: true,
+        useMaterial3: true,
+      ),
+      darkTheme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Colors.deepPurple,
+          brightness: Brightness.dark,
         ),
-
-      home: const LoginPage(), // 預設從登入頁進入
+        useMaterial3: true,
+      ),
+      home: const LoginPage(),
     );
   }
 }
