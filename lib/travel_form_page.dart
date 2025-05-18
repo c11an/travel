@@ -414,39 +414,39 @@ class _TravelFormPageState extends State<TravelFormPage> {
 
   @override
   Widget build(BuildContext context) {
-    final markers = filteredSpots
-      .map((spot) {
-        final lat = double.tryParse(spot['Py'] ?? '');
-        final lng = double.tryParse(spot['Px'] ?? '');
-        if (lat == null || lng == null) return null;
+    final markers = (selectedCity == null)
+      ? <Marker>{} // ✅ 初始不顯示任何標記
+      : filteredSpots
+          .map((spot) {
+            final lat = double.tryParse(spot['Py'] ?? '');
+            final lng = double.tryParse(spot['Px'] ?? '');
+            if (lat == null || lng == null) return null;
 
-        // 狀態判斷
-        final isFavorited = _isFavorited(spot);
-        final isSelected = selectedSpots.any((s) => s['Name'] == spot['Name']);
+            final isFavorited = _isFavorited(spot);
+            final isSelected = selectedSpots.any((s) => s['Name'] == spot['Name']);
 
-        // 根據狀態給圖示
-        BitmapDescriptor icon;
-        if (isSelected) {
-          icon = selectedMarker ?? BitmapDescriptor.defaultMarker;
-        } else if (isFavorited) {
-          icon = favoritedMarker ?? BitmapDescriptor.defaultMarker;
-        } else {
-          icon = defaultMarker ?? BitmapDescriptor.defaultMarker;
-        }
+            BitmapDescriptor icon;
+            if (isSelected) {
+              icon = selectedMarker ?? BitmapDescriptor.defaultMarker;
+            } else if (isFavorited) {
+              icon = favoritedMarker ?? BitmapDescriptor.defaultMarker;
+            } else {
+              icon = defaultMarker ?? BitmapDescriptor.defaultMarker;
+            }
 
-        return Marker(
-          markerId: MarkerId(spot['Name'] ?? '無名'),
-          position: LatLng(lat, lng),
-          icon: icon,
-          onTap: () => _showSpotDialog(spot),
-          infoWindow: InfoWindow(
-            title: spot['Name'],
-            snippet: spot['Add'] ?? '',
-          ),
-        );
-      })
-      .whereType<Marker>()
-      .toSet();
+            return Marker(
+              markerId: MarkerId(spot['Name'] ?? '無名'),
+              position: LatLng(lat, lng),
+              icon: icon,
+              onTap: () => _showSpotDialog(spot),
+              infoWindow: InfoWindow(
+                title: spot['Name'],
+                snippet: spot['Add'] ?? '',
+              ),
+            );
+          })
+          .whereType<Marker>()
+          .toSet();
 
 
     return Scaffold(
