@@ -21,7 +21,7 @@ class _AIRecommendPageState extends State<AIRecommendPage> {
   List<String> selectedTypes = [];
   String selectedCategory = "景點";
   List<Map<String, String>> spots = [];
-  final openAIService = OpenAIService();
+  
   bool isLoading = false;
   String? recommendationResult;
 
@@ -60,12 +60,15 @@ class _AIRecommendPageState extends State<AIRecommendPage> {
   }
 
   void _startRecommendation() async {
+    final openAIService = OpenAIService();
     if (selectedCity == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('請選擇縣市')),
       );
       return;
     }
+
+    print("🚀 開始推薦");
 
     setState(() {
       isLoading = true;
@@ -79,36 +82,72 @@ class _AIRecommendPageState extends State<AIRecommendPage> {
       return true;
     }).toList();
 
-    final gptResult = await openAIService.getTravelRecommendation(
-      city: selectedCity!,
-      types: selectedTypes,
-      budget: budget,
-      transport: transport,
-      startDate: startDate,
-      endDate: endDate,
-    );
+    try {
+      final gptResult = await openAIService
+          .getTravelRecommendation(
+            city: selectedCity!,
+            types: selectedTypes,
+            budget: budget,
+            transport: transport,
+            startDate: startDate,
+            endDate: endDate,
+          )
+          .timeout(const Duration(seconds: 20), onTimeout: () {
+        print("⚠️ GPT API 請求逾時");
+        return "⚠️ ChatGPT 回應逾時，請稍後再試";
+      });
 
-    setState(() {
-      isLoading = false;
-      recommendationResult = gptResult;
-    });
+      print("✅ GPT 結果長度：${gptResult.length}");
+      print("📝 前300字：${gptResult.substring(0, gptResult.length > 300 ? 300 : gptResult.length)}");
 
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => AIRecommendResultPage(
-          spots: filteredSpots,
-          city: selectedCity,
-          budget: budget,
-          transport: transport,
-          types: selectedTypes,
-          startDate: startDate,
-          endDate: endDate,
-          gptRecommendation: recommendationResult,
+      setState(() {
+        isLoading = false;
+        recommendationResult = gptResult;
+      });
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => AIRecommendResultPage(
+            spots: filteredSpots,
+            city: selectedCity,
+            budget: budget,
+            transport: transport,
+            types: selectedTypes,
+            startDate: startDate,
+            endDate: endDate,
+            gptRecommendation: recommendationResult,
+          ),
         ),
-      ),
-    );
+      );
+    } catch (e) {
+      print("❌ 發生錯誤：$e");
+      setState(() {
+        isLoading = false;
+      });
+      showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('錯誤'),
+          content: Text('無法獲得推薦行程：$e'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('取消'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context); // 關閉 dialog
+                _startRecommendation(); // 🔁 重新呼叫
+              },
+              child: const Text('重新推薦'),
+            ),
+          ],
+        ),
+      );
+    }
   }
+
 
   Future<void> _selectDate(BuildContext context, bool isStart) async {
     final DateTime? picked = await showDatePicker(
@@ -219,8 +258,19 @@ class _AIRecommendPageState extends State<AIRecommendPage> {
                 child: ElevatedButton(
                   onPressed: isLoading ? null : _startRecommendation,
                   child: isLoading
-                      ? const CircularProgressIndicator()
-                      : const Text('開始推薦行程'),
+                  ? Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: const [
+                        SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                        SizedBox(width: 12),
+                        Text('推薦中，請稍候...'),
+                      ],
+                    )
+                  : const Text('開始推薦行程'),
                 ),
               ),
             ],
