@@ -58,7 +58,8 @@ class OpenAIService {
       print("📡 GPT 回傳狀態碼：${response.statusCode}");
 
       if (response.statusCode == 200) {
-        final jsonResponse = jsonDecode(response.body);
+        final decodedBody = utf8.decode(response.bodyBytes); // ✅ 解決亂碼
+        final jsonResponse = jsonDecode(decodedBody);         // ✅ 用正確的解碼後的字串
         final result = jsonResponse['choices'][0]['message']['content'] ?? "⚠️ GPT 回傳為空";
         print("📝 GPT 回傳前300字：${result.length > 300 ? result.substring(0, 300) + '...' : result}");
         return result;
@@ -69,6 +70,7 @@ class OpenAIService {
         print("❌ 其他錯誤內容：${response.body}");
         return "❌ API 錯誤：${response.statusCode}";
       }
+
     } catch (e) {
       print("❌ 發生例外錯誤：$e");
       return "❌ 發生例外錯誤：$e";
