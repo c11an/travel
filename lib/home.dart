@@ -382,7 +382,7 @@ class _HomePageState extends State<HomePage> {
                     const SizedBox(height: 10),
                     if (_savedTrips.isEmpty)
                       const Text('目前沒有旅遊規劃紀錄', style: TextStyle(color: Colors.grey)),
-                    ..._savedTrips.map((trip) => ListTile(
+                    ..._savedTrips.reversed.take(3).map((trip) => ListTile(
                         title: Text(trip['trip_name'] ?? '未命名行程'),
                         subtitle: Text("📅 ${trip['start_date']} ~ ${trip['end_date']}"),
                         trailing: const Icon(Icons.chevron_right),
