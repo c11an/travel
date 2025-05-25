@@ -755,14 +755,23 @@ class _HomePageState extends State<HomePage> {
           unselectedItemColor: Colors.grey,
           onTap: _onItemTapped,
           type: BottomNavigationBarType.fixed,
-          items: const [
-            BottomNavigationBarItem(icon: Icon(Icons.home), label: '首頁'),
-            BottomNavigationBarItem(icon: Icon(Icons.explore), label: '探索'),
-            BottomNavigationBarItem(icon: Icon(Icons.map), label: '行程'),
-            BottomNavigationBarItem(icon: Icon(Icons.book), label: '日誌'),
-            BottomNavigationBarItem(icon: Icon(Icons.person), label: '個人'),
+          items: [
+            const BottomNavigationBarItem(icon: Icon(Icons.home), label: '首頁'),
+            const BottomNavigationBarItem(icon: Icon(Icons.explore), label: '探索'),
+            const BottomNavigationBarItem(icon: Icon(Icons.map), label: '行程'),
+            BottomNavigationBarItem(
+              icon: Image.asset(
+                'assets/images/journey.jpg',
+                width: 70,
+                height: 70,
+                fit: BoxFit.contain,
+              ),
+              label: '日誌',
+            ),
+            const BottomNavigationBarItem(icon: Icon(Icons.person), label: '個人'),
           ],
         ),
+
       ),
     );
 

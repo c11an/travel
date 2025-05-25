@@ -21,6 +21,8 @@ class _AIRecommendPageState extends State<AIRecommendPage> {
   List<String> selectedTypes = [];
   String selectedCategory = "景點";
   List<Map<String, String>> spots = [];
+  List<Map<String, String>> allSpots = []; // 🔧 全部資料
+
   
   bool isLoading = false;
   String? recommendationResult;
@@ -43,6 +45,7 @@ class _AIRecommendPageState extends State<AIRecommendPage> {
     final fileName = selectedCategory == "景點"
         ? 'assets/data/ScenicSpot.csv'
         : 'assets/data/Restaurant.csv';
+
     final rawData = await rootBundle.loadString(fileName);
     final csvRows = const CsvToListConverter().convert(rawData);
     final headers = csvRows.first.map((e) => e.toString()).toList();
@@ -55,7 +58,8 @@ class _AIRecommendPageState extends State<AIRecommendPage> {
     }).toList();
 
     setState(() {
-      spots = data;
+      allSpots = data; // ✅ 保留完整資料
+      spots = data;    // ✅ 或者可以加條件篩選（像選縣市後 filter）
     });
   }
 
@@ -110,6 +114,7 @@ class _AIRecommendPageState extends State<AIRecommendPage> {
         MaterialPageRoute(
           builder: (context) => AIRecommendResultPage(
             spots: filteredSpots,
+            allSpots: allSpots,           // ✅ 新增這行，給 GPT 行程比對用
             city: selectedCity,
             budget: budget,
             transport: transport,

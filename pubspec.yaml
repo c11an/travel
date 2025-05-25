@@ -77,6 +77,7 @@ flutter:
     - assets/images/jiufen.jpg
     - assets/images/SunSet.jpg
     - assets/images/Alishan.jpg
+    - assets/images/journey.jpg
     - assets/data/景點.csv
     - assets/data/步道.csv
     - assets/data/自行車道.csv
@@ -88,6 +89,7 @@ flutter:
     - assets/data/country.csv
     - assets/data/Restaurant.csv
     - assets/data/Hotel.csv
+    
     
     
 
