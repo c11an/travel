@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:intl/intl.dart';
 
 class OpenAIService {
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
@@ -12,10 +13,10 @@ class OpenAIService {
     required String transport,
     required DateTime? startDate,
     required DateTime? endDate,
+    required List<Map<String, String>> availableSpots,
   }) async {
     try {
       print("📥 開始呼叫 GPT API...");
-
       final apiKey = await _storage.read(key: 'OPENAI_API_KEY');
 
       if (apiKey == null || apiKey.isEmpty) {
@@ -36,7 +37,7 @@ class OpenAIService {
           "messages": [
             {
               "role": "system",
-              "content": "你是一位專業的台灣旅遊行程規劃師，請根據使用者輸入推薦每日的早上、下午、晚上安排。"
+              "content": "你是一位專業的台灣旅遊行程規劃師，只能根據提供的景點清單安排行程，禁止產生清單以外的景點。"
             },
             {
               "role": "user",
@@ -47,6 +48,7 @@ class OpenAIService {
                 transport: transport,
                 startDate: startDate,
                 endDate: endDate,
+                availableSpots: availableSpots,
               )
             }
           ],
@@ -58,8 +60,8 @@ class OpenAIService {
       print("📡 GPT 回傳狀態碼：${response.statusCode}");
 
       if (response.statusCode == 200) {
-        final decodedBody = utf8.decode(response.bodyBytes); // ✅ 解決亂碼
-        final jsonResponse = jsonDecode(decodedBody);         // ✅ 用正確的解碼後的字串
+        final decodedBody = utf8.decode(response.bodyBytes);
+        final jsonResponse = jsonDecode(decodedBody);
         final result = jsonResponse['choices'][0]['message']['content'] ?? "⚠️ GPT 回傳為空";
         print("📝 GPT 回傳前300字：${result.length > 300 ? result.substring(0, 300) + '...' : result}");
         return result;
@@ -70,7 +72,6 @@ class OpenAIService {
         print("❌ 其他錯誤內容：${response.body}");
         return "❌ API 錯誤：${response.statusCode}";
       }
-
     } catch (e) {
       print("❌ 發生例外錯誤：$e");
       return "❌ 發生例外錯誤：$e";
@@ -84,17 +85,33 @@ class OpenAIService {
     required String transport,
     required DateTime? startDate,
     required DateTime? endDate,
+    required List<Map<String, String>> availableSpots,
   }) {
     final dateInfo = (startDate != null && endDate != null)
-        ? "從 ${startDate.toLocal().toString().split(' ')[0]} 到 ${endDate.toLocal().toString().split(' ')[0]}"
+        ? "從 ${DateFormat('yyyy/MM/dd').format(startDate)} 到 ${DateFormat('yyyy/MM/dd').format(endDate)}"
         : "無指定日期";
+
     final typesList = types.isNotEmpty ? types.join(", ") : "不拘";
+
+    // ✅ 限制最多傳入 100 筆景點，避免 token 超限
+    final spotNames = availableSpots
+        .map((s) => s['Name'])
+        .whereType<String>()
+        .where((n) => n.trim().isNotEmpty)
+        .toSet()
+        .take(100)
+        .toList();
+
+    final joinedSpots = spotNames.join("、");
 
     return """
 我正在規劃一趟旅遊，地點是 $city。我的預算是每人 $budget 元。
 我希望行程包含以下類型：$typesList。
 我希望的交通方式是：$transport。
 旅遊日期為：$dateInfo。
+
+以下是可以使用的景點清單（限制於此清單內）：$joinedSpots。
+請你務必只根據這些景點規劃行程，不要出現清單以外的名稱。
 
 請幫我規劃一份每日行程表，格式如下：
 Day 1：

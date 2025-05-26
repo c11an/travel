@@ -86,6 +86,12 @@ class _AIRecommendPageState extends State<AIRecommendPage> {
       return true;
     }).toList();
 
+    if (filteredSpots.length < 5) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('⚠️ 可用景點太少，建議更換縣市或旅遊類型')),
+      );
+    }
+
     try {
       final gptResult = await openAIService
           .getTravelRecommendation(
@@ -95,6 +101,7 @@ class _AIRecommendPageState extends State<AIRecommendPage> {
             transport: transport,
             startDate: startDate,
             endDate: endDate,
+            availableSpots: allSpots.where((spot) => spot['Region'] == selectedCity).toList(), // ✅ 限制景點來源
           )
           .timeout(const Duration(seconds: 20), onTimeout: () {
         print("⚠️ GPT API 請求逾時");
@@ -244,6 +251,12 @@ class _AIRecommendPageState extends State<AIRecommendPage> {
                   );
                 }).toList(),
               ),
+              if (selectedTypes.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text('已選：${selectedTypes.join("、")}'),
+              ),
+
               const SizedBox(height: 16),
               const Text('預算範圍 (NT\$)'),
               Slider(

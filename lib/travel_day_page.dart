@@ -163,7 +163,11 @@ class _TravelDayPageState extends State<TravelDayPage>
     await prefs.setStringList('trip_list', tripList);
 
     if (mounted) {
-      Navigator.pop(context, tripData); // 返回並傳回行程資料
+      //Navigator.pop(context, tripData); // 返回並傳回行程資料
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('✅ 行程已儲存')),
+);
+
     }
   }
 
@@ -225,15 +229,15 @@ class _TravelDayPageState extends State<TravelDayPage>
           tabs: List.generate(dayCount, (i) => Tab(text: 'Day ${i + 1}')),
         ),
         actions: [
-          if (!widget.readOnly)
+          if (widget.readOnly) // ✅ 只有唯讀時才顯示
             IconButton(
               onPressed: () => _showNotes(viewOnly: true, dayIndex: _currentDayIndex),
               icon: const Icon(Icons.notes),
               tooltip: "查看心得",
             ),
         ],
-
       ),
+
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -275,17 +279,22 @@ class _TravelDayPageState extends State<TravelDayPage>
                             ),
                           ),
                           const SizedBox(width: 12),
-                          if (!widget.readOnly) // ✅ 加上這行條件判斷
-                            Expanded(
-                              child: ElevatedButton.icon(
-                                onPressed: () => _showNotes(viewOnly: true, dayIndex: dayIndex),
-                                icon: const Icon(Icons.notes),
-                                label: const Text("查看心得"),
-                              ),
+                           if (!widget.readOnly)
+                            IconButton(
+                              onPressed: _saveTrip,
+                              icon: const Icon(Icons.save),
+                              tooltip: "儲存行程",
+                            ),
+                          if (widget.readOnly)
+                            IconButton(
+                              onPressed: () => _showNotes(viewOnly: true, dayIndex: _currentDayIndex),
+                              icon: const Icon(Icons.notes),
+                              tooltip: "查看心得",
                             ),
                         ],
                       ),
                     ),
+
 
                     Expanded(
                       child: spots.isEmpty
@@ -345,15 +354,15 @@ class _TravelDayPageState extends State<TravelDayPage>
         ],
       ),
       bottomNavigationBar: widget.readOnly
-      ? null
-      : Padding(
-          padding: const EdgeInsets.all(12),
-          child: ElevatedButton.icon(
-            onPressed: () => _showNotes(viewOnly: false, dayIndex: _currentDayIndex),
-            icon: const Icon(Icons.note_add),
-            label: const Text("新增心得"),
-          ),
-        ),
+        ? Padding(
+            padding: const EdgeInsets.all(12),
+            child: ElevatedButton.icon(
+              onPressed: () => _showNotes(viewOnly: false, dayIndex: _currentDayIndex),
+              icon: const Icon(Icons.note_add),
+              label: const Text("新增心得"),
+            ),
+          )
+        : null,
     );
   }
 

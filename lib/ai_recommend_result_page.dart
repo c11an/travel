@@ -1,6 +1,8 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:travel/spot_detail_page.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:travel/travel_day_page.dart'; // ⭐記得import
 
 class AIRecommendResultPage extends StatefulWidget {
@@ -140,10 +142,21 @@ class _AIRecommendResultPageState extends State<AIRecommendResultPage> {
           budget: widget.budget?.toInt() ?? 0,
           transport: widget.transport ?? '不限',
           initialSpots: matchedSpots,
-          readOnly: true,
+          readOnly: false, // ✅ 改為可儲存
         ),
       ),
-    );
+    ).then((result) async {
+      if (result != null && result is Map<String, dynamic>) {
+        final prefs = await SharedPreferences.getInstance();
+        final tripList = prefs.getStringList('trip_list') ?? [];
+        tripList.add(jsonEncode(result));
+        await prefs.setStringList('trip_list', tripList);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('✅ GPT 行程已儲存至行程規劃')),
+        );
+      }
+    });
+
   }
 
 
