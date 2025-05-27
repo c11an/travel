@@ -23,7 +23,7 @@ class _LoginPageState extends State<LoginPage> {
     }
 
     final response = await http.post(
-      Uri.parse('https://aafc-114-36-223-135.ngrok-free.app/api/auth/login/'),
+      Uri.parse('https://be2c-114-36-198-203.ngrok-free.app/api/auth/login/'),
       headers: {"Content-Type": "application/json"},
       body: jsonEncode({
         "username": _nameController.text,
@@ -43,7 +43,7 @@ class _LoginPageState extends State<LoginPage> {
 
       await http.post(
         Uri.parse(
-          'https://aafc-114-36-223-135.ngrok-free.app/api/auth/record-login/',
+          'https://be2c-114-36-198-203.ngrok-free.app/api/auth/record-login/',
         ),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({"username": _nameController.text}),
@@ -258,7 +258,7 @@ class _RegisterPageState extends State<RegisterPage> {
 
     final response = await http.post(
       Uri.parse(
-        'https://aafc-114-36-223-135.ngrok-free.app/api/auth/register/',
+        'https://be2c-114-36-198-203.ngrok-free.app/api/auth/register/',
       ),
       headers: {"Content-Type": "application/json"},
       body: jsonEncode({

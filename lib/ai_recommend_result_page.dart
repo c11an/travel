@@ -60,7 +60,8 @@ class _AIRecommendResultPageState extends State<AIRecommendResultPage> {
     });
   }
 
-  void _convertGptToTravelPage() {
+  void _convertGptToTravelPage() async {
+  try {
     final gptText = widget.gptRecommendation ?? '';
 
     if (widget.startDate == null || widget.endDate == null) {
@@ -77,43 +78,56 @@ class _AIRecommendResultPageState extends State<AIRecommendResultPage> {
       return;
     }
 
-    // 🔍 Step 1: 解析 GPT 行程
+    // 🧠 解析 GPT 內容
     final Map<int, List<String>> dayMap = {};
     final lines = gptText.split('\n');
     int currentDay = -1;
 
     for (var line in lines) {
       line = line.trim();
+      if (line.isEmpty) continue;
+
       if (line.startsWith('Day')) {
-        final match = RegExp(r'\d+').firstMatch(line);
+        final match = RegExp(r'Day\s*(\d+)').firstMatch(line);
         if (match != null) {
-          currentDay = int.parse(match.group(0)!) - 1;
+          currentDay = int.parse(match.group(1)!) - 1;
           dayMap[currentDay] = [];
         }
       } else if (line.contains('：') && currentDay >= 0) {
-        final content = line.split('：')[1];
-        final names = content
-            .split(RegExp(r'[、,，。]'))
-            .map((s) => s.trim())
-            .where((s) => s.isNotEmpty)
-            .toList();
-        dayMap[currentDay]?.addAll(names);
+        final parts = line.split('：');
+        if (parts.length > 1) {
+          final content = parts.sublist(1).join('：').trim();
+          final names = content
+              .split(RegExp(r'[、,，。]'))
+              .map((s) => s.trim())
+              .where((s) => s.isNotEmpty)
+              .toList();
+          dayMap[currentDay]?.addAll(names);
+        }
       }
     }
 
     print('🔎 Day Map keys: ${dayMap.keys}');
 
-    // 🔧 根據旅遊實際天數限制列表長度
-    final maxDayIndex = dayMap.keys.isEmpty ? 0 : dayMap.keys.reduce((a, b) => a > b ? a : b);
+    if (dayMap.isEmpty) {
+      throw Exception('GPT 行程內容無法解析成天數結構');
+    }
+
+    // 📅 計算行程天數
+    final maxDayIndex = dayMap.keys.reduce(max);
     final tripDays = max(widget.endDate!.difference(widget.startDate!).inDays + 1, maxDayIndex + 1);
-    List<List<Map<String, String>>> matchedSpots = List.generate(tripDays, (_) => []);
+    final matchedSpots = List.generate(tripDays, (_) => <Map<String, String>>[]);
+
+    // 📍 景點比對
     for (final entry in dayMap.entries) {
       final int dayIndex = entry.key;
 
-      if (dayIndex >= matchedSpots.length) continue; // ✅ 避免超出天數索引
+      if (dayIndex >= matchedSpots.length) {
+        print('⚠️ 略過 Day $dayIndex，超出 tripDays 範圍 $tripDays');
+        continue;
+      }
 
-      final List<String> gptNames = entry.value;
-      for (final gptName in gptNames) {
+      for (final gptName in entry.value) {
         Map<String, String>? bestSpot;
 
         for (final spot in widget.allSpots) {
@@ -126,31 +140,26 @@ class _AIRecommendResultPageState extends State<AIRecommendResultPage> {
 
         if (bestSpot != null) {
           matchedSpots[dayIndex].add(bestSpot);
+        } else {
+          print('❓ 找不到對應景點：$gptName');
         }
       }
     }
 
-    print('🧠 GPT Recommendation:\n$gptText');
-    print('🗺️ 景點資料數量：${widget.spots.length}');
-    for (int day = 0; day < matchedSpots.length; day++) {
-      final spots = matchedSpots[day];
-      print('Day ${day + 1}: ${spots.map((s) => s['Name']).join(", ")}');
+    // 🧾 輸出結果
+    print('✅ 匹配完成，每日景點如下：');
+    for (int i = 0; i < matchedSpots.length; i++) {
+      print('Day ${i + 1}: ${matchedSpots[i].map((s) => s['Name']).join(", ")}');
     }
 
-    final totalMatched = matchedSpots.fold<int>(0, (sum, list) => sum + list.length);
-    if (totalMatched == 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('⚠️ 找不到任何對應景點，頁面仍將開啟')),
-      );
-    }
-
+    // 🚀 跳轉並儲存行程
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => TravelDayPage(
           tripName: 'GPT推薦行程',
-          startDate: widget.startDate ?? DateTime.now(),
-          endDate: widget.endDate ?? DateTime.now().add(Duration(days: matchedSpots.length - 1)),
+          startDate: widget.startDate!,
+          endDate: widget.startDate!.add(Duration(days: matchedSpots.length - 1)), // 🔥 重點修正
           budget: widget.budget?.toInt() ?? 0,
           transport: widget.transport ?? '不限',
           initialSpots: matchedSpots,
@@ -168,7 +177,25 @@ class _AIRecommendResultPageState extends State<AIRecommendResultPage> {
         );
       }
     });
+  } catch (e, stackTrace) {
+    print('❌ 解析或建立行程失敗：$e');
+    print(stackTrace);
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('⚠️ 發生錯誤'),
+        content: Text('解析 GPT 行程或跳轉頁面時發生錯誤：\n$e'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('我知道了')),
+        ],
+      ),
+    );
   }
+}
+
+
+
 
 
 

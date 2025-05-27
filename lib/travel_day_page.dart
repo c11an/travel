@@ -41,9 +41,10 @@ class _TravelDayPageState extends State<TravelDayPage>
   late List<List<String>> dailyTransports;
 
   @override
+  @override
   void initState() {
     super.initState();
-    dayCount = widget.endDate.difference(widget.startDate).inDays + 1;
+    dayCount = widget.initialSpots?.length ?? widget.endDate.difference(widget.startDate).inDays + 1;
     _tabController = TabController(length: dayCount, vsync: this);
 
     final incomingSpots = widget.initialSpots ?? [];
@@ -60,10 +61,9 @@ class _TravelDayPageState extends State<TravelDayPage>
     );
 
     _generateTransports();
-
-    // super.initState();
     _loadNotesFromStorage(); // ✅ 載入儲存的心得
   }
+
 
   void _generateTransports() {
     dailyTransports = List.generate(dayCount, (_) => []);
@@ -253,105 +253,106 @@ class _TravelDayPageState extends State<TravelDayPage>
           Expanded(
             child: TabBarView(
               controller: _tabController,
-              children: List.generate(dayCount, (dayIndex) {
-                final spots = dailySpots[dayIndex];
-
-                return Column(
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      child: Row(
-                        children: [
-                          if (!widget.readOnly)
+              children: List.generate(
+                min(dayCount, min(dailySpots.length, dailyTransports.length)), // ✅ 多層保護
+                (dayIndex) {
+                  final spots = dailySpots[dayIndex];
+                  return Column(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        child: Row(
+                          children: [
+                            if (!widget.readOnly)
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  onPressed: () => _exploreAndAddSpots(dayIndex),
+                                  icon: const Icon(Icons.add_location_alt),
+                                  label: const Text("探索新增景點"),
+                                ),
+                              ),
+                            if (!widget.readOnly) const SizedBox(width: 12),
                             Expanded(
                               child: ElevatedButton.icon(
-                                onPressed: () => _exploreAndAddSpots(dayIndex),
-                                icon: const Icon(Icons.add_location_alt),
-                                label: const Text("探索新增景點"),
+                                onPressed: () => _showMap(dayIndex),
+                                icon: const Icon(Icons.map),
+                                label: const Text("在地圖查看"),
                               ),
                             ),
-                          if (!widget.readOnly) const SizedBox(width: 12),
-                          Expanded(
-                            child: ElevatedButton.icon(
-                              onPressed: () => _showMap(dayIndex),
-                              icon: const Icon(Icons.map),
-                              label: const Text("在地圖查看"),
-                            ),
-                          ),
-                          if (!widget.readOnly) const SizedBox(width: 12),
-                          if (!widget.readOnly)
-                            IconButton(
-                              onPressed: _saveTrip,
-                              icon: const Icon(Icons.save),
-                              tooltip: "儲存行程",
-                            ),
-                          if (widget.readOnly)
-                            IconButton(
-                              onPressed: () => _showNotes(viewOnly: true, dayIndex: _currentDayIndex),
-                              icon: const Icon(Icons.notes),
-                              tooltip: "查看心得",
-                            ),
-                        ],
+                            if (!widget.readOnly) const SizedBox(width: 12),
+                            if (!widget.readOnly)
+                              IconButton(
+                                onPressed: _saveTrip,
+                                icon: const Icon(Icons.save),
+                                tooltip: "儲存行程",
+                              ),
+                            if (widget.readOnly)
+                              IconButton(
+                                onPressed: () => _showNotes(viewOnly: true, dayIndex: _currentDayIndex),
+                                icon: const Icon(Icons.notes),
+                                tooltip: "查看心得",
+                              ),
+                          ],
+                        ),
                       ),
-                    ),
 
-                    Expanded(
-                      child: spots.isEmpty
-                        ? const Center(
-                            child: Text(
-                              '今日尚未安排景點',
-                              style: TextStyle(fontSize: 16, color: Colors.grey),
-                            ),
-                          )
-                        : ReorderableListView.builder(
-                            itemCount: spots.length,
-                            onReorder: (oldIndex, newIndex) {
-                              setState(() {
-                                if (newIndex > oldIndex) newIndex--;
-                                final movedSpot = dailySpots[dayIndex].removeAt(oldIndex);
-                                dailySpots[dayIndex].insert(newIndex, movedSpot);
-                                _generateTransports(); // 重新生成交通方式
-                              });
-                              _saveNotesToStorage(); // ✅ 拖曳後立即儲存順序
-                            },
-
-                            itemBuilder: (context, index) {
-                              final spot = spots[index];
-                              return Card(
-                                key: ValueKey(spot['ID'] ?? '${spot['Name']}_$index'),
-                                margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                child: ListTile(
-                                  title: Text(spot['Name'] ?? '無名稱'),
-                                  subtitle: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text('${spot['Region'] ?? ''} ${spot['Town'] ?? ''}'),
-                                      if (index < dailyTransports[dayIndex].length)
-                                        Padding(
-                                          padding: const EdgeInsets.only(top: 4),
-                                          child: Text(
-                                            dailyTransports[dayIndex][index],
-                                            style: const TextStyle(fontSize: 12, color: Colors.grey),
-                                          ),
-                                        ),
-                                    ],
-                                  ),
-                                  trailing: const Icon(Icons.drag_handle), // ✅ 拖曳圖示（三條橫線）
-                                  onTap: () => _showSpotDetail(spot),
+                      Expanded(
+                        child: spots.isEmpty
+                            ? const Center(
+                                child: Text(
+                                  '今日尚未安排景點',
+                                  style: TextStyle(fontSize: 16, color: Colors.grey),
                                 ),
-                              );
-
-                            },
-                          ),
-                    ),
-
-                  ],
-                );
-              }),
+                              )
+                            : ReorderableListView.builder(
+                                itemCount: spots.length,
+                                onReorder: (oldIndex, newIndex) {
+                                  setState(() {
+                                    if (newIndex > oldIndex) newIndex--;
+                                    final movedSpot = dailySpots[dayIndex].removeAt(oldIndex);
+                                    dailySpots[dayIndex].insert(newIndex, movedSpot);
+                                    _generateTransports(); // 重新生成交通方式
+                                  });
+                                  _saveNotesToStorage(); // ✅ 拖曳後立即儲存順序
+                                },
+                                itemBuilder: (context, index) {
+                                  final spot = spots[index];
+                                  return Card(
+                                    key: ValueKey(spot['ID'] ?? '${spot['Name']}_$index'),
+                                    margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                    child: ListTile(
+                                      title: Text(spot['Name'] ?? '無名稱'),
+                                      subtitle: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text('${spot['Region'] ?? ''} ${spot['Town'] ?? ''}'),
+                                          if (dayIndex < dailyTransports.length &&
+                                              index < dailyTransports[dayIndex].length)
+                                            Padding(
+                                              padding: const EdgeInsets.only(top: 4),
+                                              child: Text(
+                                                dailyTransports[dayIndex][index],
+                                                style: const TextStyle(fontSize: 12, color: Colors.grey),
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                      trailing: const Icon(Icons.drag_handle),
+                                      onTap: () => _showSpotDetail(spot),
+                                    ),
+                                  );
+                                },
+                              ),
+                      ),
+                    ],
+                  );
+                },
+              ),
             ),
           ),
         ],
       ),
+
       bottomNavigationBar: widget.readOnly
         ? Padding(
             padding: const EdgeInsets.all(12),
