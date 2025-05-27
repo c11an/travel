@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -61,6 +62,14 @@ class _AIRecommendResultPageState extends State<AIRecommendResultPage> {
 
   void _convertGptToTravelPage() {
     final gptText = widget.gptRecommendation ?? '';
+
+    if (widget.startDate == null || widget.endDate == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('⚠️ 未設定旅遊日期，無法建立日行程')),
+      );
+      return;
+    }
+
     if (gptText.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('⚠️ GPT 回傳內容為空')),
@@ -92,13 +101,18 @@ class _AIRecommendResultPageState extends State<AIRecommendResultPage> {
       }
     }
 
-    // 🔍 Step 2: 強化模糊比對：雙向包含
-    List<List<Map<String, String>>> matchedSpots = List.generate(dayMap.length, (_) => []);
+    print('🔎 Day Map keys: ${dayMap.keys}');
 
+    // 🔧 根據旅遊實際天數限制列表長度
+    final maxDayIndex = dayMap.keys.isEmpty ? 0 : dayMap.keys.reduce((a, b) => a > b ? a : b);
+    final tripDays = max(widget.endDate!.difference(widget.startDate!).inDays + 1, maxDayIndex + 1);
+    List<List<Map<String, String>>> matchedSpots = List.generate(tripDays, (_) => []);
     for (final entry in dayMap.entries) {
       final int dayIndex = entry.key;
-      final List<String> gptNames = entry.value;
 
+      if (dayIndex >= matchedSpots.length) continue; // ✅ 避免超出天數索引
+
+      final List<String> gptNames = entry.value;
       for (final gptName in gptNames) {
         Map<String, String>? bestSpot;
 
@@ -116,7 +130,6 @@ class _AIRecommendResultPageState extends State<AIRecommendResultPage> {
       }
     }
 
-    // ✅ Debug 印出比對成果
     print('🧠 GPT Recommendation:\n$gptText');
     print('🗺️ 景點資料數量：${widget.spots.length}');
     for (int day = 0; day < matchedSpots.length; day++) {
@@ -125,7 +138,6 @@ class _AIRecommendResultPageState extends State<AIRecommendResultPage> {
     }
 
     final totalMatched = matchedSpots.fold<int>(0, (sum, list) => sum + list.length);
-
     if (totalMatched == 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('⚠️ 找不到任何對應景點，頁面仍將開啟')),
@@ -142,7 +154,7 @@ class _AIRecommendResultPageState extends State<AIRecommendResultPage> {
           budget: widget.budget?.toInt() ?? 0,
           transport: widget.transport ?? '不限',
           initialSpots: matchedSpots,
-          readOnly: false, // ✅ 改為可儲存
+          readOnly: false,
         ),
       ),
     ).then((result) async {
@@ -156,8 +168,8 @@ class _AIRecommendResultPageState extends State<AIRecommendResultPage> {
         );
       }
     });
-
   }
+
 
 
   // ✅ 模糊比對相似度：Jaccard-like 比對
@@ -277,7 +289,10 @@ class _AIRecommendResultPageState extends State<AIRecommendResultPage> {
         );
       } else if (line.contains('：')) {
         final parts = line.split('：');
-        if (parts.length == 2) {
+        if (parts.length > 1) {
+          final key = parts[0].trim();
+          final value = parts.sublist(1).join('：').trim(); // 防止有多個「：」
+
           widgets.add(
             Padding(
               padding: const EdgeInsets.only(left: 12, top: 4),
@@ -285,20 +300,22 @@ class _AIRecommendResultPageState extends State<AIRecommendResultPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    "${parts[0]}：",
+                    "$key：",
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
-                  Expanded(child: Text(parts[1])),
+                  Expanded(child: Text(value)),
                 ],
               ),
             ),
           );
         } else {
+          // 若不是 key：value 格式，直接當成一般段落顯示
           widgets.add(Padding(
             padding: const EdgeInsets.only(left: 12, top: 4),
             child: Text(line),
           ));
         }
+
       } else {
         widgets.add(Padding(
           padding: const EdgeInsets.only(left: 12, top: 4),

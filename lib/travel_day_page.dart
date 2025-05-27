@@ -270,7 +270,7 @@ class _TravelDayPageState extends State<TravelDayPage>
                                 label: const Text("探索新增景點"),
                               ),
                             ),
-                          const SizedBox(width: 12),
+                          if (!widget.readOnly) const SizedBox(width: 12),
                           Expanded(
                             child: ElevatedButton.icon(
                               onPressed: () => _showMap(dayIndex),
@@ -278,8 +278,8 @@ class _TravelDayPageState extends State<TravelDayPage>
                               label: const Text("在地圖查看"),
                             ),
                           ),
-                          const SizedBox(width: 12),
-                           if (!widget.readOnly)
+                          if (!widget.readOnly) const SizedBox(width: 12),
+                          if (!widget.readOnly)
                             IconButton(
                               onPressed: _saveTrip,
                               icon: const Icon(Icons.save),
@@ -294,7 +294,6 @@ class _TravelDayPageState extends State<TravelDayPage>
                         ],
                       ),
                     ),
-
 
                     Expanded(
                       child: spots.isEmpty
