@@ -41,10 +41,9 @@ class _TravelDayPageState extends State<TravelDayPage>
   late List<List<String>> dailyTransports;
 
   @override
-  @override
   void initState() {
     super.initState();
-    dayCount = widget.initialSpots?.length ?? widget.endDate.difference(widget.startDate).inDays + 1;
+    dayCount = widget.endDate.difference(widget.startDate).inDays + 1;
     _tabController = TabController(length: dayCount, vsync: this);
 
     final incomingSpots = widget.initialSpots ?? [];
@@ -52,6 +51,11 @@ class _TravelDayPageState extends State<TravelDayPage>
       dayCount,
       (index) => index < incomingSpots.length ? incomingSpots[index] : [],
     );
+
+    // ✅ 確保 dailySpots 長度足夠
+    if (dailySpots.length < dayCount) {
+      dailySpots += List.generate(dayCount - dailySpots.length, (_) => []);
+    }
 
     final incomingTransports = widget.initialTransports ?? [];
     dailyTransports = List.generate(
@@ -113,26 +117,84 @@ class _TravelDayPageState extends State<TravelDayPage>
   double _degreesToRadians(double degree) => degree * (pi / 180);
 
   void _exploreAndAddSpots(int dayIndex) async {
-    final result = await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => TravelFormPage(browseOnly: false, dayIndex: dayIndex),
-      ),
-    );
+    try {
+      final result = await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => TravelFormPage(browseOnly: false, dayIndex: dayIndex),
+        ),
+      );
 
-    if (result != null && result is Map) {
-      final List<Map<String, String>> selectedSpots =
-          List<Map<String, String>>.from(result['selectedSpots'] ?? []);
-      final int returnedDayIndex = result['dayIndex'] ?? dayIndex;
+      if (result != null && result is Map) {
+        final List<Map<String, String>> selectedSpots =
+            List<Map<String, String>>.from(result['selectedSpots'] ?? []);
+        final int returnedDayIndex = dayIndex;
 
-      if (selectedSpots.isNotEmpty) {
-        setState(() {
-          dailySpots[returnedDayIndex].addAll(selectedSpots);
-          _generateTransports();
-        });
+        debugPrint("✅ 選擇景點回傳：$selectedSpots");
+
+        if (selectedSpots.isNotEmpty) {
+          setState(() {
+            final List<Map<String, String>> validSpots = [];
+
+            for (int i = 0; i < selectedSpots.length; i++) {
+              final s = selectedSpots[i];
+              final name = s['Name'] ?? '無名';
+              final duration = s['Duration'] ?? '1';
+
+              // ⭐ 自動分配時間：從 08 開始依序往後排
+              final time = (8 + i).toString().padLeft(2, '0');
+
+              if (int.tryParse(time) == null || int.tryParse(duration) == null) {
+                debugPrint("❌ 景點 '$name' 欄位格式錯誤 (Time: $time, Duration: $duration)");
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('❗ 景點 "$name" 時間格式錯誤')),
+                );
+                continue;
+              }
+
+              validSpots.add({
+                'Name': name,
+                'Add': s['Add'] ?? '',
+                'Px': s['Px'] ?? '0',
+                'Py': s['Py'] ?? '0',
+                'Description': s['Description'] ?? '',
+                'Time': time,
+                'Duration': duration,
+              });
+            }
+
+            if (validSpots.isEmpty) {
+              debugPrint("⚠️ 所有景點皆無法加入，請檢查格式");
+              return;
+            }
+
+            dailySpots[returnedDayIndex].addAll(validSpots);
+            debugPrint("📌 加入景點成功：${dailySpots[returnedDayIndex]}");
+
+            _generateTransports();
+            _saveNotesToStorage(); // 可選：確保儲存
+          });
+        } else {
+          debugPrint("⚠️ selectedSpots 為空");
+        }
+      } else {
+        debugPrint("⚠️ result 為 null 或格式錯誤: $result");
       }
+    } catch (e, stack) {
+      debugPrint("❗ 發生錯誤：$e");
+      debugPrint("🔍 堆疊追蹤：$stack");
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('❗ 發生錯誤，請稍後再試')),
+      );
     }
   }
+
+
+
+
+
+
 
   void _showMap(int dayIndex) {
     final spots = dailySpots[dayIndex];
@@ -223,13 +285,13 @@ class _TravelDayPageState extends State<TravelDayPage>
           isScrollable: true,
           onTap: (index) {
             setState(() {
-              _currentDayIndex = index; // ✅ 更新目前選擇的日期
+              _currentDayIndex = index;
             });
           },
           tabs: List.generate(dayCount, (i) => Tab(text: 'Day ${i + 1}')),
         ),
         actions: [
-          if (widget.readOnly) // ✅ 只有唯讀時才顯示
+          if (widget.readOnly)
             IconButton(
               onPressed: () => _showNotes(viewOnly: true, dayIndex: _currentDayIndex),
               icon: const Icon(Icons.notes),
@@ -237,7 +299,6 @@ class _TravelDayPageState extends State<TravelDayPage>
             ),
         ],
       ),
-
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -253,106 +314,122 @@ class _TravelDayPageState extends State<TravelDayPage>
           Expanded(
             child: TabBarView(
               controller: _tabController,
-              children: List.generate(
-                min(dayCount, min(dailySpots.length, dailyTransports.length)), // ✅ 多層保護
-                (dayIndex) {
-                  final spots = dailySpots[dayIndex];
-                  return Column(
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        child: Row(
-                          children: [
-                            if (!widget.readOnly)
-                              Expanded(
-                                child: ElevatedButton.icon(
-                                  onPressed: () => _exploreAndAddSpots(dayIndex),
-                                  icon: const Icon(Icons.add_location_alt),
-                                  label: const Text("探索新增景點"),
-                                ),
-                              ),
-                            if (!widget.readOnly) const SizedBox(width: 12),
+              children: List.generate(dayCount, (dayIndex) {
+                final spots = dayIndex < dailySpots.length ? dailySpots[dayIndex] : [];
+
+                print("🌀 當前 Tab：Day \${dayIndex + 1}");
+                print("📦 dailySpots.length = \${dailySpots.length}");
+                print("📦 spots = \${spots}");
+
+                if (spots.isEmpty) {
+                  print("⚠️ 當日無景點！");
+                } else {
+                  for (var spot in spots) {
+                    print("👀 顯示景點：\${spot['Name']}，開始時間：\${spot['Time']}，停留時間：\${spot['Duration']} 小時");
+                  }
+                }
+
+                return Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      child: Row(
+                        children: [
+                          if (!widget.readOnly)
                             Expanded(
                               child: ElevatedButton.icon(
-                                onPressed: () => _showMap(dayIndex),
-                                icon: const Icon(Icons.map),
-                                label: const Text("在地圖查看"),
+                                onPressed: () => _exploreAndAddSpots(dayIndex),
+                                icon: const Icon(Icons.add_location_alt),
+                                label: const Text("探索新增景點"),
                               ),
                             ),
-                            if (!widget.readOnly) const SizedBox(width: 12),
-                            if (!widget.readOnly)
-                              IconButton(
-                                onPressed: _saveTrip,
-                                icon: const Icon(Icons.save),
-                                tooltip: "儲存行程",
+                          if (!widget.readOnly) const SizedBox(width: 12),
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: () => _showMap(dayIndex),
+                              icon: const Icon(Icons.map),
+                              label: const Text("在地圖查看"),
+                            ),
+                          ),
+                          if (!widget.readOnly) const SizedBox(width: 12),
+                          if (!widget.readOnly)
+                            IconButton(
+                              onPressed: _saveTrip,
+                              icon: const Icon(Icons.save),
+                              tooltip: "儲存行程",
+                            ),
+                          if (widget.readOnly)
+                            IconButton(
+                              onPressed: () => _showNotes(viewOnly: true, dayIndex: _currentDayIndex),
+                              icon: const Icon(Icons.notes),
+                              tooltip: "查看心得",
+                            ),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.vertical,
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Column(
+                              children: List.generate(13, (i) {
+                                final hour = 8 + i;
+                                return SizedBox(
+                                  height: 60,
+                                  width: 60,
+                                  child: Center(
+                                    child: Text("${hour.toString().padLeft(2, '0')}:00"),
+
+                                  ),
+                                );
+                              }),
+                            ),
+                            const SizedBox(width: 12),
+                            SizedBox(
+                              width: MediaQuery.of(context).size.width - 100,
+                              child: SizedBox(
+                                height: 13 * 60,
+                                child: Stack(
+                                  children: [
+                                    ...spots.asMap().entries.map((entry) {
+                                      final spot = entry.value;
+                                      final startHour = int.tryParse(spot['Time'] ?? '8') ?? 8;
+                                      final duration = int.tryParse(spot['Duration'] ?? '1') ?? 1;
+
+                                      return Positioned(
+                                        top: (startHour - 8) * 60,
+                                        left: 0,
+                                        right: 0,
+                                        height: duration * 60,
+                                        child: Draggable<Map<String, String>>(
+                                          data: spot,
+                                          feedback: _buildSpotBlock(spot, dayIndex, isFeedback: true),
+                                          childWhenDragging: Container(),
+                                          child: GestureDetector(
+                                            onTap: () => _editDurationDialog(spot),
+                                            child: _buildSpotBlock(spot, dayIndex),
+                                          ),
+                                        ),
+                                      );
+                                    }),
+                                    ..._buildDropTargets(dayIndex),
+                                  ],
+                                ),
                               ),
-                            if (widget.readOnly)
-                              IconButton(
-                                onPressed: () => _showNotes(viewOnly: true, dayIndex: _currentDayIndex),
-                                icon: const Icon(Icons.notes),
-                                tooltip: "查看心得",
-                              ),
+                            ),
                           ],
                         ),
                       ),
-
-                      Expanded(
-                        child: spots.isEmpty
-                            ? const Center(
-                                child: Text(
-                                  '今日尚未安排景點',
-                                  style: TextStyle(fontSize: 16, color: Colors.grey),
-                                ),
-                              )
-                            : ReorderableListView.builder(
-                                itemCount: spots.length,
-                                onReorder: (oldIndex, newIndex) {
-                                  setState(() {
-                                    if (newIndex > oldIndex) newIndex--;
-                                    final movedSpot = dailySpots[dayIndex].removeAt(oldIndex);
-                                    dailySpots[dayIndex].insert(newIndex, movedSpot);
-                                    _generateTransports(); // 重新生成交通方式
-                                  });
-                                  _saveNotesToStorage(); // ✅ 拖曳後立即儲存順序
-                                },
-                                itemBuilder: (context, index) {
-                                  final spot = spots[index];
-                                  return Card(
-                                    key: ValueKey(spot['ID'] ?? '${spot['Name']}_$index'),
-                                    margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                    child: ListTile(
-                                      title: Text(spot['Name'] ?? '無名稱'),
-                                      subtitle: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text('${spot['Region'] ?? ''} ${spot['Town'] ?? ''}'),
-                                          if (dayIndex < dailyTransports.length &&
-                                              index < dailyTransports[dayIndex].length)
-                                            Padding(
-                                              padding: const EdgeInsets.only(top: 4),
-                                              child: Text(
-                                                dailyTransports[dayIndex][index],
-                                                style: const TextStyle(fontSize: 12, color: Colors.grey),
-                                              ),
-                                            ),
-                                        ],
-                                      ),
-                                      trailing: const Icon(Icons.drag_handle),
-                                      onTap: () => _showSpotDetail(spot),
-                                    ),
-                                  );
-                                },
-                              ),
-                      ),
-                    ],
-                  );
-                },
-              ),
+                    ),
+                  ],
+                );
+              }),
             ),
           ),
         ],
       ),
-
       bottomNavigationBar: widget.readOnly
         ? Padding(
             padding: const EdgeInsets.all(12),
@@ -366,53 +443,170 @@ class _TravelDayPageState extends State<TravelDayPage>
     );
   }
 
+
+
   /// 跳轉到撰寫或查看心得頁面
   void _showNotes({required bool viewOnly, required int dayIndex}) {
-  Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (_) => TravelNotePage(
-        dailySpots: dailySpots[dayIndex],
-        dayIndex: dayIndex,
-        readOnly: viewOnly,
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => TravelNotePage(
+          dailySpots: dailySpots[dayIndex],
+          dayIndex: dayIndex,
+          readOnly: viewOnly,
+        ),
       ),
-    ),
-  ).then((updatedSpots) {
-    if (updatedSpots != null) {
+    ).then((updatedSpots) {
+      if (updatedSpots != null) {
+        setState(() {
+          dailySpots[dayIndex] = updatedSpots;
+          _saveNotesToStorage(); // ✅ 儲存心得
+        });
+      }
+    });
+  }
+
+  // ✅ 新增儲存心得到 SharedPreferences
+  Future<void> _saveNotesToStorage() async {
+    final prefs = await SharedPreferences.getInstance();
+    final tripName = widget.tripName;
+    final encodedNotes = jsonEncode(dailySpots);
+    await prefs.setString('notes_$tripName', encodedNotes);
+  }
+
+  // ✅ 載入儲存的心得
+  Future<void> _loadNotesFromStorage() async {
+    final prefs = await SharedPreferences.getInstance();
+    final tripName = widget.tripName;
+    final storedNotes = prefs.getString('notes_$tripName');
+
+    if (storedNotes != null) {
+      final decodedNotes = List<List<Map<String, String>>>.from(
+        jsonDecode(storedNotes).map(
+          (day) => List<Map<String, String>>.from(
+            day.map<Map<String, String>>((spot) => Map<String, String>.from(spot)),
+          ),
+        ),
+      );
+
       setState(() {
-        dailySpots[dayIndex] = updatedSpots;
-        _saveNotesToStorage(); // ✅ 儲存心得
-      });
+      dailySpots = decodedNotes;
+      if (dailySpots.length < dayCount) {
+        dailySpots += List.generate(dayCount - dailySpots.length, (_) => []);
+      }
+    });
+
     }
-  });
-}
+  }
 
-// ✅ 新增儲存心得到 SharedPreferences
-Future<void> _saveNotesToStorage() async {
-  final prefs = await SharedPreferences.getInstance();
-  final tripName = widget.tripName;
-  final encodedNotes = jsonEncode(dailySpots);
-  await prefs.setString('notes_$tripName', encodedNotes);
-}
+  Widget _buildSpotBlock(Map<String, String> spot, int dayIndex, {bool isFeedback = false}) {
 
-// ✅ 載入儲存的心得
-Future<void> _loadNotesFromStorage() async {
-  final prefs = await SharedPreferences.getInstance();
-  final tripName = widget.tripName;
-  final storedNotes = prefs.getString('notes_$tripName');
+    if (!spot.containsKey('Name')) {
+        print("🚨 無效景點：$spot");
+        return const SizedBox(); // or a red box
+    }
 
-  if (storedNotes != null) {
-    final decodedNotes = List<List<Map<String, String>>>.from(
-      jsonDecode(storedNotes).map(
-        (day) => List<Map<String, String>>.from(
-          day.map<Map<String, String>>((spot) => Map<String, String>.from(spot)),
+    final duration = int.tryParse(spot['Duration'] ?? '1') ?? 1;
+    final name = spot['Name'] ?? '無名稱';
+    final time = spot['Time'] ?? '08';
+
+    print("👀 顯示景點：$name，開始時間：$time，停留時間：${duration} 小時");
+
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: isFeedback ? Colors.blue.withOpacity(0.6) : Colors.blue,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      padding: const EdgeInsets.all(8),
+      child: FittedBox( // ✅ 防止溢位
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.topLeft,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              name,
+              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 4),
+            ElevatedButton(
+              onPressed: () => _editDurationDialog(spot),
+              style: ElevatedButton.styleFrom(
+                minimumSize: const Size(60, 30), // ✅ 避免太大
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: Text('$duration 小時', style: const TextStyle(fontSize: 12)),
+            ),
+          ],
         ),
       ),
     );
+  }
 
-    setState(() {
-      dailySpots = decodedNotes;
+
+
+
+  void _editDurationDialog(Map<String, String> spot) {
+    final controller = TextEditingController(text: spot['Duration'] ?? '1');
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text("設定停留時間"),
+        content: TextField(
+          controller: controller,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(labelText: '停留時間（小時）'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              final value = int.tryParse(controller.text);
+              if (value != null && value > 0) {
+                setState(() {
+                  spot['Duration'] = value.toString();
+                });
+                Navigator.pop(context);
+              } else {
+                // 顯示錯誤訊息
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('❗ 請輸入有效的整數（大於 0）')),
+                );
+              }
+            },
+            child: const Text("確認"),
+          )
+        ],
+      ),
+    );
+  }
+
+  List<Positioned> _buildDropTargets(int dayIndex) {
+    return List.generate(13, (i) {
+      final hour = 8 + i;
+      return Positioned(
+        top: i * 60,
+        left: 0,
+        right: 0,
+        height: 60,
+        child: DragTarget<Map<String, String>>(
+          onWillAccept: (_) => true,
+          onAccept: (spot) {
+            setState(() {
+              spot['Time'] = hour.toString();
+            });
+          },
+          builder: (_, __, ___) => Container(
+            decoration: BoxDecoration(
+              color: Colors.grey.shade100, // 拖曳格背景
+              border: Border(
+                top: BorderSide(color: Colors.grey.shade300),
+              ),
+            ),
+          ),
+        ),
+      );
     });
   }
-}
 }
