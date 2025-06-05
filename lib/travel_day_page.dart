@@ -1,9 +1,11 @@
 import 'dart:math';
 import 'dart:convert';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:travel/travel_note_page.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'travel_form_page.dart';
 import 'map_view_page.dart'; // ⭐️ 要新增的地圖顯示頁面
 
@@ -136,21 +138,25 @@ class _TravelDayPageState extends State<TravelDayPage>
           setState(() {
             final List<Map<String, String>> validSpots = [];
 
+            // ⭐ 初始化時間從 08:00 開始
+            int currentTime = 8;
+
             for (int i = 0; i < selectedSpots.length; i++) {
               final s = selectedSpots[i];
               final name = s['Name'] ?? '無名';
-              final duration = s['Duration'] ?? '1';
+              final durationStr = s['Duration'] ?? '1';
+              final duration = int.tryParse(durationStr) ?? 1;
 
-              // ⭐ 自動分配時間：從 08 開始依序往後排
-              final time = (8 + i).toString().padLeft(2, '0');
-
-              if (int.tryParse(time) == null || int.tryParse(duration) == null) {
-                debugPrint("❌ 景點 '$name' 欄位格式錯誤 (Time: $time, Duration: $duration)");
+              // 檢查時間與停留時間格式
+              if (duration <= 0 || currentTime > 20) {
+                debugPrint("❌ 景點 '$name' 資料錯誤或時間超出範圍");
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('❗ 景點 "$name" 時間格式錯誤')),
+                  SnackBar(content: Text('❗ 景點 "$name" 時間格式錯誤或超過顯示範圍')),
                 );
                 continue;
               }
+
+              final timeStr = currentTime.toString().padLeft(2, '0');
 
               validSpots.add({
                 'Name': name,
@@ -158,9 +164,12 @@ class _TravelDayPageState extends State<TravelDayPage>
                 'Px': s['Px'] ?? '0',
                 'Py': s['Py'] ?? '0',
                 'Description': s['Description'] ?? '',
-                'Time': time,
-                'Duration': duration,
+                'Time': timeStr,
+                'Duration': duration.toString(),
               });
+
+              // 🔁 將下一個景點的開始時間往後遞增
+              currentTime += duration;
             }
 
             if (validSpots.isEmpty) {
@@ -168,11 +177,16 @@ class _TravelDayPageState extends State<TravelDayPage>
               return;
             }
 
+            // ✅ 補足 dailySpots 長度
+            while (dailySpots.length <= returnedDayIndex) {
+              dailySpots.add([]);
+            }
+
             dailySpots[returnedDayIndex].addAll(validSpots);
             debugPrint("📌 加入景點成功：${dailySpots[returnedDayIndex]}");
 
             _generateTransports();
-            _saveNotesToStorage(); // 可選：確保儲存
+            _saveNotesToStorage();
           });
         } else {
           debugPrint("⚠️ selectedSpots 為空");
@@ -189,6 +203,7 @@ class _TravelDayPageState extends State<TravelDayPage>
       );
     }
   }
+
 
 
 
@@ -317,15 +332,15 @@ class _TravelDayPageState extends State<TravelDayPage>
               children: List.generate(dayCount, (dayIndex) {
                 final spots = dayIndex < dailySpots.length ? dailySpots[dayIndex] : [];
 
-                print("🌀 當前 Tab：Day \${dayIndex + 1}");
-                print("📦 dailySpots.length = \${dailySpots.length}");
-                print("📦 spots = \${spots}");
+                print("🌀 當前 Tab：Day ${dayIndex + 1}");
+                print("📦 dailySpots.length = ${dailySpots.length}");
+                print("📦 spots = ${spots}");
 
                 if (spots.isEmpty) {
                   print("⚠️ 當日無景點！");
                 } else {
                   for (var spot in spots) {
-                    print("👀 顯示景點：\${spot['Name']}，開始時間：\${spot['Time']}，停留時間：\${spot['Duration']} 小時");
+                    print("👀 顯示景點：${spot['Name']}，開始時間：${spot['Time']}，停留時間：${spot['Duration']} 小時");
                   }
                 }
 
@@ -377,11 +392,11 @@ class _TravelDayPageState extends State<TravelDayPage>
                               children: List.generate(13, (i) {
                                 final hour = 8 + i;
                                 return SizedBox(
-                                  height: 60,
-                                  width: 60,
+                                  height: 70,
                                   child: Center(
-                                    child: Text("${hour.toString().padLeft(2, '0')}:00"),
-
+                                    child: Text("${hour.toString().padLeft(2, '0')}:00",
+                                      style: const TextStyle(fontSize: 16),
+                                    ),
                                   ),
                                 );
                               }),
@@ -389,34 +404,73 @@ class _TravelDayPageState extends State<TravelDayPage>
                             const SizedBox(width: 12),
                             SizedBox(
                               width: MediaQuery.of(context).size.width - 100,
-                              child: SizedBox(
-                                height: 13 * 60,
-                                child: Stack(
-                                  children: [
-                                    ...spots.asMap().entries.map((entry) {
-                                      final spot = entry.value;
-                                      final startHour = int.tryParse(spot['Time'] ?? '8') ?? 8;
-                                      final duration = int.tryParse(spot['Duration'] ?? '1') ?? 1;
+                              child: LayoutBuilder(
+                                builder: (context, constraints) {
+                                  final maxEndTime = spots.map((spot) {
+                                    final start = int.tryParse(spot['Time'] ?? '8') ?? 8;
+                                    final duration = int.tryParse(spot['Duration'] ?? '1') ?? 1;
+                                    return start + duration;
+                                  }).fold<int>(8, (prev, end) => end > prev ? end : prev);
 
-                                      return Positioned(
-                                        top: (startHour - 8) * 60,
-                                        left: 0,
-                                        right: 0,
-                                        height: duration * 60,
-                                        child: Draggable<Map<String, String>>(
-                                          data: spot,
-                                          feedback: _buildSpotBlock(spot, dayIndex, isFeedback: true),
-                                          childWhenDragging: Container(),
-                                          child: GestureDetector(
-                                            onTap: () => _editDurationDialog(spot),
-                                            child: _buildSpotBlock(spot, dayIndex),
-                                          ),
-                                        ),
-                                      );
-                                    }),
-                                    ..._buildDropTargets(dayIndex),
-                                  ],
-                                ),
+                                  final totalHeight = max(1, (maxEndTime - 8)) * 60.0;
+
+                                  return SizedBox(
+                                    height: totalHeight,
+                                    child: Stack(
+                                      children: [
+                                        // 🔲 背景格線
+                                        ...List.generate(maxEndTime - 8, (i) {
+                                          return Positioned(
+                                            top: i * 60.0,
+                                            left: 0,
+                                            right: 0,
+                                            height: 60,
+                                            child: Container(
+                                              decoration: BoxDecoration(
+                                                border: Border(
+                                                  top: BorderSide(color: Colors.grey.shade300),
+                                                ),
+                                              ),
+                                            ),
+                                          );
+                                        }),
+
+                                        // 🟡 拖曳區塊
+                                        ..._buildDropTargets(dayIndex),
+
+                                        // 🔷 景點方塊
+                                        ...spots.asMap().entries.map((entry) {
+                                          final spot = entry.value;
+                                          final startHour = int.tryParse(spot['Time'] ?? '8') ?? 8;
+                                          final duration = int.tryParse(spot['Duration'] ?? '1') ?? 1;
+
+                                          return Positioned(
+                                            top: (startHour - 8) * 60,
+                                            left: 0,
+                                            right: 0,
+                                            height: duration * 60,
+                                            child: Draggable<Map<String, String>>(
+                                              data: spot,
+                                              feedback: Material(
+                                                color: Colors.transparent,
+                                                child: _buildSpotBlock(spot, dayIndex, isFeedback: true),
+                                              ),
+                                              childWhenDragging: Opacity(
+                                                opacity: 0.3,
+                                                child: _buildSpotBlock(spot, dayIndex),
+                                              ),
+                                              child: GestureDetector(
+                                                onTap: () => _showSpotInfoDialog(spot),
+                                                child: _buildSpotBlock(spot, dayIndex),
+                                              ),
+                                            ),
+                                          );
+                                        }),
+                                      ],
+                                    ),
+                                  );
+                                }
+
                               ),
                             ),
                           ],
@@ -431,17 +485,19 @@ class _TravelDayPageState extends State<TravelDayPage>
         ],
       ),
       bottomNavigationBar: widget.readOnly
-        ? Padding(
-            padding: const EdgeInsets.all(12),
-            child: ElevatedButton.icon(
-              onPressed: () => _showNotes(viewOnly: false, dayIndex: _currentDayIndex),
-              icon: const Icon(Icons.note_add),
-              label: const Text("新增心得"),
-            ),
-          )
-        : null,
+          ? Padding(
+              padding: const EdgeInsets.all(12),
+              child: ElevatedButton.icon(
+                onPressed: () => _showNotes(viewOnly: false, dayIndex: _currentDayIndex),
+                icon: const Icon(Icons.note_add),
+                label: const Text("新增心得"),
+              ),
+            )
+          : null,
     );
   }
+
+
 
 
 
@@ -500,10 +556,9 @@ class _TravelDayPageState extends State<TravelDayPage>
   }
 
   Widget _buildSpotBlock(Map<String, String> spot, int dayIndex, {bool isFeedback = false}) {
-
     if (!spot.containsKey('Name')) {
-        print("🚨 無效景點：$spot");
-        return const SizedBox(); // or a red box
+      print("🚨 無效景點：$spot");
+      return const SizedBox();
     }
 
     final duration = int.tryParse(spot['Duration'] ?? '1') ?? 1;
@@ -512,38 +567,169 @@ class _TravelDayPageState extends State<TravelDayPage>
 
     print("👀 顯示景點：$name，開始時間：$time，停留時間：${duration} 小時");
 
-    return Container(
+    final container = Container(
       width: double.infinity,
+      height: duration * 70.0,
       decoration: BoxDecoration(
-        color: isFeedback ? Colors.blue.withOpacity(0.6) : Colors.blue,
+        color: isFeedback ? Colors.blue.withOpacity(0.6) : const Color.fromARGB(255, 128, 189, 239),
         borderRadius: BorderRadius.circular(8),
       ),
       padding: const EdgeInsets.all(8),
-      child: FittedBox( // ✅ 防止溢位
-        fit: BoxFit.scaleDown,
-        alignment: Alignment.topLeft,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              name,
-              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 4),
-            ElevatedButton(
-              onPressed: () => _editDurationDialog(spot),
-              style: ElevatedButton.styleFrom(
-                minimumSize: const Size(60, 30), // ✅ 避免太大
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  name,
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-              child: Text('$duration 小時', style: const TextStyle(fontSize: 12)),
-            ),
-          ],
-        ),
+              IconButton(
+                onPressed: () => _editDurationDialog(spot),
+                icon: const Icon(Icons.access_time, color: Colors.white, size: 18),
+                tooltip: '更改停留時間',
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text('$duration 小時', style: const TextStyle(color: Colors.white, fontSize: 12)),
+        ],
+      ),
+    );
+
+    if (isFeedback) return container;
+
+    return Dismissible(
+      key: ValueKey(name + time),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        color: Colors.red,
+        child: const Icon(Icons.delete, color: Colors.white),
+      ),
+      onDismissed: (_) {
+        setState(() {
+          dailySpots[dayIndex].remove(spot);
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('🗑️ 已刪除 $name')),
+        );
+      },
+      child: GestureDetector(
+        onTap: () => _showSpotInfoDialog(spot),
+        child: container,
       ),
     );
   }
+
+  // 顯示簡化版景點資訊 Dialog（只有關閉與資訊按鈕）
+  void _showSpotInfoDialog(Map<String, String> spot) {
+    final name = spot['Name'] ?? '無名稱';
+    final address = spot['Add'] ?? '無地址';
+    String imageUrl = '';
+
+    // 嘗試解析圖片 URL
+    try {
+      final pictureField = spot['Picture1'];
+      if (pictureField != null && pictureField.isNotEmpty) {
+        if (pictureField.trim().startsWith('{')) {
+          final parsed = json.decode(pictureField);
+          imageUrl = parsed['src'] ?? '';
+        } else if (pictureField.startsWith('http')) {
+          imageUrl = pictureField;
+        }
+      }
+    } catch (e) {
+      debugPrint("⚠️ 圖片解析錯誤：$e");
+    }
+
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text(name),
+        content: SingleChildScrollView(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 300), // 👈 避免 overflow
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text("📍 $address", style: const TextStyle(fontSize: 14)),
+                const SizedBox(height: 8),
+                if (imageUrl.isNotEmpty)
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: CachedNetworkImage(
+                      imageUrl: imageUrl,
+                      height: 150,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                      placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
+                      errorWidget: (context, url, error) => const Icon(Icons.error),
+                    ),
+                  )
+                else
+                  const Text("❌ 無圖片"),
+              ],
+            ),
+          ),
+        ),
+
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("關閉"),
+          ),
+          TextButton(
+            onPressed: () {
+              final lat = spot['Py'];
+              final lng = spot['Px'];
+              if (lat != null && lng != null) {
+                final url =
+                    'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng&travelmode=driving';
+                launchUrl(
+                  Uri.parse(url),
+                  mode: LaunchMode.externalApplication,
+                );
+              }
+            },
+            child: const Text('🧭 導航'),
+          ),
+          TextButton(
+            onPressed: () {
+              final description = spot['Toldescribe'] ?? spot['Description'] ?? '❌ 沒有描述資料';
+              showDialog(
+                context: context,
+                builder: (_) => AlertDialog(
+                  title: const Text("📘 景點資訊"),
+                  content: SingleChildScrollView(
+                    child: Text(description),
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text("關閉"),
+                    ),
+                  ],
+                ),
+              );
+            },
+            child: const Text("📘 資訊"),
+          ),
+        ],
+      ),
+    );
+  }
+
+
+
+
 
 
 
@@ -599,7 +785,7 @@ class _TravelDayPageState extends State<TravelDayPage>
           },
           builder: (_, __, ___) => Container(
             decoration: BoxDecoration(
-              color: Colors.grey.shade100, // 拖曳格背景
+              color: Colors.transparent, // ✅ 不遮擋景點
               border: Border(
                 top: BorderSide(color: Colors.grey.shade300),
               ),
@@ -609,4 +795,5 @@ class _TravelDayPageState extends State<TravelDayPage>
       );
     });
   }
+
 }
