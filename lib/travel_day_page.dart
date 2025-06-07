@@ -235,18 +235,29 @@ class _TravelDayPageState extends State<TravelDayPage>
     };
 
     final prefs = await SharedPreferences.getInstance();
-    final tripList = prefs.getStringList('trip_list') ?? [];
+    List<String> tripList = prefs.getStringList('trip_list') ?? [];
+
+    // ✅ 移除舊的同名行程（避免重複儲存）
+    tripList.removeWhere((tripStr) {
+      final decoded = jsonDecode(tripStr);
+      return decoded['trip_name'] == widget.tripName;
+    });
+
+    // ✅ 加入新的行程
     tripList.add(jsonEncode(tripData));
     await prefs.setStringList('trip_list', tripList);
 
     if (mounted) {
-      //Navigator.pop(context, tripData); // 返回並傳回行程資料
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('✅ 行程已儲存')),
-);
+      );
 
+      // ⭐️ 儲存完成後跳回 TravelInputPage
+    Navigator.pop(context, tripData);
+    
     }
   }
+
 
 
   void _showSpotDetail(Map<String, String> spot) {
@@ -367,12 +378,7 @@ class _TravelDayPageState extends State<TravelDayPage>
                             ),
                           ),
                           if (!widget.readOnly) const SizedBox(width: 12),
-                          if (!widget.readOnly)
-                            IconButton(
-                              onPressed: _saveTrip,
-                              icon: const Icon(Icons.save),
-                              tooltip: "儲存行程",
-                            ),
+                          
                           if (widget.readOnly)
                             IconButton(
                               onPressed: () => _showNotes(viewOnly: true, dayIndex: _currentDayIndex),
@@ -383,106 +389,100 @@ class _TravelDayPageState extends State<TravelDayPage>
                       ),
                     ),
                     Expanded(
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.vertical,
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(minHeight: 600), // ✅ 適當高度
-                          child: IntrinsicHeight(
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Column(
-                                  children: List.generate(13, (i) {
-                                    final hour = 8 + i;
-                                    return SizedBox(
-                                      height: 70,
-                                      child: Center(
-                                        child: Text("${hour.toString().padLeft(2, '0')}:00",
-                                          style: const TextStyle(fontSize: 16),
-                                        ),
-                                      ),
-                                    );
-                                  }),
-                                ),
-                                const SizedBox(width: 12),
-                                SizedBox(
-                                  width: MediaQuery.of(context).size.width - 100,
-                                  child: LayoutBuilder(
-                                    builder: (context, constraints) {
-                                      final maxEndTime = spots.map((spot) {
-                                        final start = int.tryParse(spot['Time'] ?? '8') ?? 8;
-                                        final duration = int.tryParse(spot['Duration'] ?? '1') ?? 1;
-                                        return start + duration;
-                                      }).fold<int>(8, (prev, end) => end > prev ? end : prev);
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          print("🧩 LayoutBuilder 收到 spots: $spots");
 
-                                      final totalHeight = (maxEndTime - 8) * 80.0 + 80.0;
+                          final maxEndTime = spots.map((spot) {
+                            final start = int.tryParse(spot['Time'] ?? '8') ?? 8;
+                            final duration = int.tryParse(spot['Duration'] ?? '1') ?? 1;
+                            return start + duration;
+                          }).fold<int>(8, (prev, end) => end > prev ? end : prev);
 
+                          final totalHeight = ((maxEndTime - 8) * 80.0 + 80.0).clamp(600.0, 1040.0);
+
+                          return SingleChildScrollView(
+                            scrollDirection: Axis.vertical,
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints(minHeight: totalHeight),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Column(
+                                    children: List.generate(13, (i) {
+                                      final hour = 8 + i;
                                       return SizedBox(
-                                        height: totalHeight,
-                                        width: constraints.maxWidth,
-                                        child: Stack(
-                                          children: [
-                                            // 🔲 背景格線
-                                            ...List.generate(maxEndTime - 8, (i) {
-                                              return Positioned(
-                                                top: i * 80.0,
-                                                left: 0,
-                                                right: 0,
-                                                height: 80,
-                                                child: Container(
-                                                  decoration: BoxDecoration(
-                                                    border: Border(
-                                                      top: BorderSide(color: Colors.grey.shade300),
-                                                    ),
-                                                  ),
-                                                ),
-                                              );
-                                            }),
-
-                                            // 🟡 拖曳區塊
-                                            ..._buildDropTargets(dayIndex),
-
-                                            // 🔷 景點方塊
-                                            ...spots.asMap().entries.map((entry) {
-                                              final spot = entry.value;
-                                              final startHour = int.tryParse(spot['Time'] ?? '8') ?? 8;
-                                              final duration = int.tryParse(spot['Duration'] ?? '1') ?? 1;
-
-                                              return Positioned(
-                                                top: (startHour - 8) * 80,
-                                                left: 0,
-                                                right: 0,
-                                                height: duration * 80,
-                                                child: Draggable<Map<String, String>>(
-                                                  data: spot,
-                                                  feedback: Material(
-                                                    color: Colors.transparent,
-                                                    child: _buildSpotBlock(spot, dayIndex, isFeedback: true),
-                                                  ),
-                                                  childWhenDragging: Opacity(
-                                                    opacity: 0.3,
-                                                    child: _buildSpotBlock(spot, dayIndex),
-                                                  ),
-                                                  child: GestureDetector(
-                                                    onTap: () => _showSpotInfoDialog(spot),
-                                                    child: _buildSpotBlock(spot, dayIndex),
-                                                  ),
-                                                ),
-                                              );
-                                            }),
-                                          ],
+                                        height: 80,
+                                        width: 80,
+                                        child: Center(
+                                          child: Text(
+                                            "${hour.toString().padLeft(2, '0')}:00",
+                                            style: const TextStyle(fontSize: 16),
+                                          ),
                                         ),
                                       );
-                                    },
+                                    }),
                                   ),
+                                  const SizedBox(width: 12),
+                                  SizedBox(
+                                    width: max(constraints.maxWidth - 92, 200), // 🛠 防止負寬
+                                    child: Stack(
+                                      children: [
+                                        ...List.generate(maxEndTime - 8, (i) {
+                                          return Positioned(
+                                            top: i * 80.0,
+                                            left: 0,
+                                            right: 0,
+                                            height: 80,
+                                            child: Container(
+                                              decoration: BoxDecoration(
+                                                border: Border(
+                                                  top: BorderSide(color: Colors.grey.shade300),
+                                                ),
+                                              ),
+                                            ),
+                                          );
+                                        }),
+                                        ..._buildDropTargets(dayIndex),
+                                        ...spots.asMap().entries.map((entry) {
+                                          final spot = entry.value;
+                                          final startHour = int.tryParse(spot['Time'] ?? '8') ?? 8;
+                                          final duration = int.tryParse(spot['Duration'] ?? '1') ?? 1;
 
-                                ),
-                              ],
+                                          return Positioned(
+                                            top: (startHour - 8) * 80,
+                                            left: 0,
+                                            right: 0,
+                                            height: duration * 80,
+                                            child: Draggable<Map<String, String>>(
+                                              data: spot,
+                                              feedback: Material(
+                                                color: Colors.transparent,
+                                                child: _buildSpotBlock(spot, dayIndex, isFeedback: true),
+                                              ),
+                                              childWhenDragging: Opacity(
+                                                opacity: 0.3,
+                                                child: _buildSpotBlock(spot, dayIndex),
+                                              ),
+                                              child: GestureDetector(
+                                                onTap: () => _showSpotInfoDialog(spot),
+                                                child: _buildSpotBlock(spot, dayIndex),
+                                              ),
+                                            ),
+                                          );
+                                        }),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
-                        ),
+                          );
+                        },
                       ),
                     ),
+
+
                   ],
                 );
               }),
@@ -490,16 +490,22 @@ class _TravelDayPageState extends State<TravelDayPage>
           ),
         ],
       ),
-      bottomNavigationBar: widget.readOnly
-          ? Padding(
-              padding: const EdgeInsets.all(12),
-              child: ElevatedButton.icon(
-                onPressed: () => _showNotes(viewOnly: false, dayIndex: _currentDayIndex),
-                icon: const Icon(Icons.note_add),
-                label: const Text("新增心得"),
-              ),
-            )
-          : null,
+      bottomNavigationBar: Padding(
+        padding: const EdgeInsets.all(12),
+        child: SizedBox(
+          width: double.infinity,
+          height: 50,
+          child: ElevatedButton.icon(
+            onPressed: _saveTrip,
+            icon: const Icon(Icons.save),
+            label: const Text("儲存行程"),
+            style: ElevatedButton.styleFrom(
+              textStyle: const TextStyle(fontSize: 16),
+            ),
+          ),
+        ),
+      ),
+
     );
   }
 
@@ -541,6 +547,30 @@ class _TravelDayPageState extends State<TravelDayPage>
     final prefs = await SharedPreferences.getInstance();
     final tripName = widget.tripName;
     final storedNotes = prefs.getString('notes_$tripName');
+
+    debugPrint("📦 嘗試從 SharedPreferences 載入 notes_$tripName");
+
+    if (storedNotes != null) {
+      try {
+        final decodedNotes = (jsonDecode(storedNotes) as List)
+            .map<List<Map<String, String>>>((day) =>
+                (day as List).map<Map<String, String>>((spot) =>
+                    Map<String, String>.from(spot as Map)).toList()).toList();
+
+        setState(() {
+          dailySpots = decodedNotes;
+
+          if (dailySpots.length < dayCount) {
+            dailySpots += List.generate(dayCount - dailySpots.length, (_) => []);
+          }
+        });
+      } catch (e) {
+        debugPrint("❌ notes_$tripName 載入失敗：$e");
+        setState(() {
+          dailySpots = List.generate(dayCount, (_) => []);
+        });
+      }
+    }
 
     if (storedNotes != null) {
       final decodedNotes = List<List<Map<String, String>>>.from(
@@ -594,7 +624,7 @@ class _TravelDayPageState extends State<TravelDayPage>
                 ),
               ),
               IconButton(
-                onPressed: () => _editDurationDialog(spot),
+                onPressed: widget.readOnly ? null : () => _editDurationDialog(spot),
                 icon: const Icon(Icons.access_time, color: Colors.white, size: 18),
                 tooltip: '更改停留時間',
                 padding: EdgeInsets.zero,
@@ -765,6 +795,7 @@ class _TravelDayPageState extends State<TravelDayPage>
               if (value != null && value > 0) {
                 setState(() {
                   spot['Duration'] = value.toString();
+                  _generateTransports();
                 });
                 Navigator.pop(context);
               } else {
@@ -790,26 +821,29 @@ class _TravelDayPageState extends State<TravelDayPage>
         right: 0,
         height: 80,
         child: DragTarget<Map<String, String>>(
-          onWillAccept: (_) => true,
+          onWillAccept: (_) => !widget.readOnly, // ❌ 唯讀時禁止拖曳
           onAccept: (Map<String, String> spot) {
+            if (widget.readOnly) return; // ❌ 防止強制觸發
             setState(() {
               final spotName = spot['Name'];
 
-              // 1️⃣ 移除原 spot（用名稱找）
               dailySpots[dayIndex].removeWhere((s) => s['Name'] == spotName);
-
-              // 2️⃣ 更新時間後重新加入
               spot['Time'] = hour.toString();
               dailySpots[dayIndex].add(spot);
 
-              // 3️⃣ 時間排序
               dailySpots[dayIndex].sort((a, b) {
                 final aTime = int.tryParse(a['Time'] ?? '8') ?? 8;
                 final bTime = int.tryParse(b['Time'] ?? '8') ?? 8;
                 return aTime.compareTo(bTime);
               });
+
+              _generateTransports();
+              // ⬇️ 儲存到 SharedPreferences
+              _saveNotesToStorage();
+              
             });
           },
+
 
           builder: (context, candidateData, rejectedData) {
             return Container(
