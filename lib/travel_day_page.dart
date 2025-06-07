@@ -334,7 +334,7 @@ class _TravelDayPageState extends State<TravelDayPage>
 
                 print("🌀 當前 Tab：Day ${dayIndex + 1}");
                 print("📦 dailySpots.length = ${dailySpots.length}");
-                print("📦 spots = ${spots}");
+                print("📦 spots = $spots");
 
                 if (spots.isEmpty) {
                   print("⚠️ 當日無景點！");
@@ -385,95 +385,101 @@ class _TravelDayPageState extends State<TravelDayPage>
                     Expanded(
                       child: SingleChildScrollView(
                         scrollDirection: Axis.vertical,
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Column(
-                              children: List.generate(13, (i) {
-                                final hour = 8 + i;
-                                return SizedBox(
-                                  height: 70,
-                                  child: Center(
-                                    child: Text("${hour.toString().padLeft(2, '0')}:00",
-                                      style: const TextStyle(fontSize: 16),
-                                    ),
-                                  ),
-                                );
-                              }),
-                            ),
-                            const SizedBox(width: 12),
-                            SizedBox(
-                              width: MediaQuery.of(context).size.width - 100,
-                              child: LayoutBuilder(
-                                builder: (context, constraints) {
-                                  final maxEndTime = spots.map((spot) {
-                                    final start = int.tryParse(spot['Time'] ?? '8') ?? 8;
-                                    final duration = int.tryParse(spot['Duration'] ?? '1') ?? 1;
-                                    return start + duration;
-                                  }).fold<int>(8, (prev, end) => end > prev ? end : prev);
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(minHeight: 600), // ✅ 適當高度
+                          child: IntrinsicHeight(
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Column(
+                                  children: List.generate(13, (i) {
+                                    final hour = 8 + i;
+                                    return SizedBox(
+                                      height: 70,
+                                      child: Center(
+                                        child: Text("${hour.toString().padLeft(2, '0')}:00",
+                                          style: const TextStyle(fontSize: 16),
+                                        ),
+                                      ),
+                                    );
+                                  }),
+                                ),
+                                const SizedBox(width: 12),
+                                SizedBox(
+                                  width: MediaQuery.of(context).size.width - 100,
+                                  child: LayoutBuilder(
+                                    builder: (context, constraints) {
+                                      final maxEndTime = spots.map((spot) {
+                                        final start = int.tryParse(spot['Time'] ?? '8') ?? 8;
+                                        final duration = int.tryParse(spot['Duration'] ?? '1') ?? 1;
+                                        return start + duration;
+                                      }).fold<int>(8, (prev, end) => end > prev ? end : prev);
 
-                                  final totalHeight = max(1, (maxEndTime - 8)) * 60.0;
+                                      final totalHeight = (maxEndTime - 8) * 80.0 + 80.0;
 
-                                  return SizedBox(
-                                    height: totalHeight,
-                                    child: Stack(
-                                      children: [
-                                        // 🔲 背景格線
-                                        ...List.generate(maxEndTime - 8, (i) {
-                                          return Positioned(
-                                            top: i * 60.0,
-                                            left: 0,
-                                            right: 0,
-                                            height: 60,
-                                            child: Container(
-                                              decoration: BoxDecoration(
-                                                border: Border(
-                                                  top: BorderSide(color: Colors.grey.shade300),
+                                      return SizedBox(
+                                        height: totalHeight,
+                                        width: constraints.maxWidth,
+                                        child: Stack(
+                                          children: [
+                                            // 🔲 背景格線
+                                            ...List.generate(maxEndTime - 8, (i) {
+                                              return Positioned(
+                                                top: i * 80.0,
+                                                left: 0,
+                                                right: 0,
+                                                height: 80,
+                                                child: Container(
+                                                  decoration: BoxDecoration(
+                                                    border: Border(
+                                                      top: BorderSide(color: Colors.grey.shade300),
+                                                    ),
+                                                  ),
                                                 ),
-                                              ),
-                                            ),
-                                          );
-                                        }),
+                                              );
+                                            }),
 
-                                        // 🟡 拖曳區塊
-                                        ..._buildDropTargets(dayIndex),
+                                            // 🟡 拖曳區塊
+                                            ..._buildDropTargets(dayIndex),
 
-                                        // 🔷 景點方塊
-                                        ...spots.asMap().entries.map((entry) {
-                                          final spot = entry.value;
-                                          final startHour = int.tryParse(spot['Time'] ?? '8') ?? 8;
-                                          final duration = int.tryParse(spot['Duration'] ?? '1') ?? 1;
+                                            // 🔷 景點方塊
+                                            ...spots.asMap().entries.map((entry) {
+                                              final spot = entry.value;
+                                              final startHour = int.tryParse(spot['Time'] ?? '8') ?? 8;
+                                              final duration = int.tryParse(spot['Duration'] ?? '1') ?? 1;
 
-                                          return Positioned(
-                                            top: (startHour - 8) * 60,
-                                            left: 0,
-                                            right: 0,
-                                            height: duration * 60,
-                                            child: Draggable<Map<String, String>>(
-                                              data: spot,
-                                              feedback: Material(
-                                                color: Colors.transparent,
-                                                child: _buildSpotBlock(spot, dayIndex, isFeedback: true),
-                                              ),
-                                              childWhenDragging: Opacity(
-                                                opacity: 0.3,
-                                                child: _buildSpotBlock(spot, dayIndex),
-                                              ),
-                                              child: GestureDetector(
-                                                onTap: () => _showSpotInfoDialog(spot),
-                                                child: _buildSpotBlock(spot, dayIndex),
-                                              ),
-                                            ),
-                                          );
-                                        }),
-                                      ],
-                                    ),
-                                  );
-                                }
+                                              return Positioned(
+                                                top: (startHour - 8) * 80,
+                                                left: 0,
+                                                right: 0,
+                                                height: duration * 80,
+                                                child: Draggable<Map<String, String>>(
+                                                  data: spot,
+                                                  feedback: Material(
+                                                    color: Colors.transparent,
+                                                    child: _buildSpotBlock(spot, dayIndex, isFeedback: true),
+                                                  ),
+                                                  childWhenDragging: Opacity(
+                                                    opacity: 0.3,
+                                                    child: _buildSpotBlock(spot, dayIndex),
+                                                  ),
+                                                  child: GestureDetector(
+                                                    onTap: () => _showSpotInfoDialog(spot),
+                                                    child: _buildSpotBlock(spot, dayIndex),
+                                                  ),
+                                                ),
+                                              );
+                                            }),
+                                          ],
+                                        ),
+                                      );
+                                    },
+                                  ),
 
-                              ),
+                                ),
+                              ],
                             ),
-                          ],
+                          ),
                         ),
                       ),
                     ),
@@ -565,11 +571,11 @@ class _TravelDayPageState extends State<TravelDayPage>
     final name = spot['Name'] ?? '無名稱';
     final time = spot['Time'] ?? '08';
 
-    print("👀 顯示景點：$name，開始時間：$time，停留時間：${duration} 小時");
+    print("👀 顯示景點：$name，開始時間：$time，停留時間：$duration 小時");
 
     final container = Container(
-      width: double.infinity,
-      height: duration * 70.0,
+      // ✅ 不設 width，讓外層決定（避免 feedback 出錯）
+      height: duration * 80.0,
       decoration: BoxDecoration(
         color: isFeedback ? Colors.blue.withOpacity(0.6) : const Color.fromARGB(255, 128, 189, 239),
         borderRadius: BorderRadius.circular(8),
@@ -602,7 +608,13 @@ class _TravelDayPageState extends State<TravelDayPage>
       ),
     );
 
-    if (isFeedback) return container;
+    if (isFeedback) {
+      // ✅ 加上固定寬度（拖曳才會有實體尺寸）
+      return SizedBox(
+        width: MediaQuery.of(context).size.width - 100, // 可調整寬度
+        child: container,
+      );
+    }
 
     return Dismissible(
       key: ValueKey(name + time),
@@ -627,6 +639,7 @@ class _TravelDayPageState extends State<TravelDayPage>
       ),
     );
   }
+
 
   // 顯示簡化版景點資訊 Dialog（只有關閉與資訊按鈕）
   void _showSpotInfoDialog(Map<String, String> spot) {
@@ -772,28 +785,51 @@ class _TravelDayPageState extends State<TravelDayPage>
     return List.generate(13, (i) {
       final hour = 8 + i;
       return Positioned(
-        top: i * 60,
+        top: i * 80.0,
         left: 0,
         right: 0,
-        height: 60,
+        height: 80,
         child: DragTarget<Map<String, String>>(
           onWillAccept: (_) => true,
-          onAccept: (spot) {
+          onAccept: (Map<String, String> spot) {
             setState(() {
+              final spotName = spot['Name'];
+
+              // 1️⃣ 移除原 spot（用名稱找）
+              dailySpots[dayIndex].removeWhere((s) => s['Name'] == spotName);
+
+              // 2️⃣ 更新時間後重新加入
               spot['Time'] = hour.toString();
+              dailySpots[dayIndex].add(spot);
+
+              // 3️⃣ 時間排序
+              dailySpots[dayIndex].sort((a, b) {
+                final aTime = int.tryParse(a['Time'] ?? '8') ?? 8;
+                final bTime = int.tryParse(b['Time'] ?? '8') ?? 8;
+                return aTime.compareTo(bTime);
+              });
             });
           },
-          builder: (_, __, ___) => Container(
-            decoration: BoxDecoration(
-              color: Colors.transparent, // ✅ 不遮擋景點
-              border: Border(
-                top: BorderSide(color: Colors.grey.shade300),
+
+          builder: (context, candidateData, rejectedData) {
+            return Container(
+              height: 80,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: candidateData.isNotEmpty
+                    ? Colors.blue.withOpacity(0.1)
+                    : Colors.transparent,
+                border: Border(
+                  top: BorderSide(color: Colors.grey.shade300),
+                ),
               ),
-            ),
-          ),
+            );
+          },
         ),
       );
     });
   }
+
+
 
 }
