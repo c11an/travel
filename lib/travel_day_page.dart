@@ -41,6 +41,8 @@ class _TravelDayPageState extends State<TravelDayPage>
   late int dayCount;
   late List<List<Map<String, String>>> dailySpots;
   late List<List<String>> dailyTransports;
+  static const double hourBlockHeight = 100.0;
+
 
   @override
   void initState() {
@@ -54,7 +56,6 @@ class _TravelDayPageState extends State<TravelDayPage>
       (index) => index < incomingSpots.length ? incomingSpots[index] : [],
     );
 
-    // ✅ 確保 dailySpots 長度足夠
     if (dailySpots.length < dayCount) {
       dailySpots += List.generate(dayCount - dailySpots.length, (_) => []);
     }
@@ -62,13 +63,16 @@ class _TravelDayPageState extends State<TravelDayPage>
     final incomingTransports = widget.initialTransports ?? [];
     dailyTransports = List.generate(
       dayCount,
-      (index) =>
-          index < incomingTransports.length ? incomingTransports[index] : [],
+      (index) => index < incomingTransports.length ? incomingTransports[index] : [],
     );
 
-    _generateTransports();
-    _loadNotesFromStorage(); // ✅ 載入儲存的心得
+    // ✅ 這樣才會在資料載入後計算正確的交通方式與刷新畫面
+    _loadNotesFromStorage().then((_) {
+      _generateTransports();
+      setState(() {});
+    });
   }
+
 
 
   void _generateTransports() {
@@ -138,8 +142,8 @@ class _TravelDayPageState extends State<TravelDayPage>
           setState(() {
             final List<Map<String, String>> validSpots = [];
 
-            // ⭐ 初始化時間從 08:00 開始
-            int currentTime = 8;
+            // ⭐ 初始化時間從 00:00 開始
+            int currentTime = 0;
 
             for (int i = 0; i < selectedSpots.length; i++) {
               final s = selectedSpots[i];
@@ -346,6 +350,8 @@ class _TravelDayPageState extends State<TravelDayPage>
                 print("🌀 當前 Tab：Day ${dayIndex + 1}");
                 print("📦 dailySpots.length = ${dailySpots.length}");
                 print("📦 spots = $spots");
+                print("🧭 Day $dayIndex 的 spots 數量為 ${spots.length}");
+
 
                 if (spots.isEmpty) {
                   print("⚠️ 當日無景點！");
@@ -394,12 +400,12 @@ class _TravelDayPageState extends State<TravelDayPage>
                           print("🧩 LayoutBuilder 收到 spots: $spots");
 
                           final maxEndTime = spots.map((spot) {
-                            final start = int.tryParse(spot['Time'] ?? '8') ?? 8;
+                            final start = int.tryParse(spot['Time'] ?? '0') ?? 0;
                             final duration = int.tryParse(spot['Duration'] ?? '1') ?? 1;
                             return start + duration;
-                          }).fold<int>(8, (prev, end) => end > prev ? end : prev);
+                          }).fold<int>(0, (prev, end) => end > prev ? end : prev);
 
-                          final totalHeight = ((maxEndTime - 8) * 80.0 + 80.0).clamp(600.0, 1040.0);
+                          final totalHeight = (maxEndTime * hourBlockHeight + hourBlockHeight).clamp(600.0, hourBlockHeight * 13); // 最多顯示 13 小時區塊
 
                           return SingleChildScrollView(
                             scrollDirection: Axis.vertical,
@@ -409,10 +415,10 @@ class _TravelDayPageState extends State<TravelDayPage>
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Column(
-                                    children: List.generate(13, (i) {
-                                      final hour = 8 + i;
+                                    children: List.generate(24, (i) {
+                                      final hour = i;
                                       return SizedBox(
-                                        height: 80,
+                                        height: hourBlockHeight,
                                         width: 80,
                                         child: Center(
                                           child: Text(
@@ -425,15 +431,16 @@ class _TravelDayPageState extends State<TravelDayPage>
                                   ),
                                   const SizedBox(width: 12),
                                   SizedBox(
-                                    width: max(constraints.maxWidth - 92, 200), // 🛠 防止負寬
+                                    width: max(constraints.maxWidth - 92, 200),
+                                    height: totalHeight, // ✅ 加上高度，修正 Stack 無法 layout 問題
                                     child: Stack(
                                       children: [
-                                        ...List.generate(maxEndTime - 8, (i) {
+                                        ...List.generate(maxEndTime, (i) {
                                           return Positioned(
-                                            top: i * 80.0,
+                                            top: i * hourBlockHeight,
                                             left: 0,
                                             right: 0,
-                                            height: 80,
+                                            height: hourBlockHeight,
                                             child: Container(
                                               decoration: BoxDecoration(
                                                 border: Border(
@@ -443,17 +450,17 @@ class _TravelDayPageState extends State<TravelDayPage>
                                             ),
                                           );
                                         }),
-                                        ..._buildDropTargets(dayIndex),
+                                        _buildDropTargets(dayIndex),
                                         ...spots.asMap().entries.map((entry) {
                                           final spot = entry.value;
                                           final startHour = int.tryParse(spot['Time'] ?? '8') ?? 8;
                                           final duration = int.tryParse(spot['Duration'] ?? '1') ?? 1;
 
                                           return Positioned(
-                                            top: (startHour - 8) * 80,
+                                            top: startHour * hourBlockHeight,
                                             left: 0,
                                             right: 0,
-                                            height: duration * 80,
+                                            height: duration * hourBlockHeight,
                                             child: Draggable<Map<String, String>>(
                                               data: spot,
                                               feedback: Material(
@@ -480,6 +487,7 @@ class _TravelDayPageState extends State<TravelDayPage>
                           );
                         },
                       ),
+
                     ),
 
 
@@ -570,9 +578,7 @@ class _TravelDayPageState extends State<TravelDayPage>
           dailySpots = List.generate(dayCount, (_) => []);
         });
       }
-    }
 
-    if (storedNotes != null) {
       final decodedNotes = List<List<Map<String, String>>>.from(
         jsonDecode(storedNotes).map(
           (day) => List<Map<String, String>>.from(
@@ -582,13 +588,17 @@ class _TravelDayPageState extends State<TravelDayPage>
       );
 
       setState(() {
-      dailySpots = decodedNotes;
-      if (dailySpots.length < dayCount) {
-        dailySpots += List.generate(dayCount - dailySpots.length, (_) => []);
-      }
-    });
-
+        dailySpots = decodedNotes;
+        if (dailySpots.length < dayCount) {
+          dailySpots += List.generate(dayCount - dailySpots.length, (_) => []);
+        }
+      });
     }
+
+    // if (storedNotes != null) {
+      
+
+    // }
   }
 
   Widget _buildSpotBlock(Map<String, String> spot, int dayIndex, {bool isFeedback = false}) {
@@ -605,13 +615,14 @@ class _TravelDayPageState extends State<TravelDayPage>
 
     final container = Container(
       // ✅ 不設 width，讓外層決定（避免 feedback 出錯）
-      height: duration * 80.0,
+      height: duration * hourBlockHeight,
       decoration: BoxDecoration(
         color: isFeedback ? Colors.blue.withOpacity(0.6) : const Color.fromARGB(255, 128, 189, 239),
         borderRadius: BorderRadius.circular(8),
       ),
       padding: const EdgeInsets.all(8),
       child: Column(
+        mainAxisSize: MainAxisSize.min, // ✅ 重點：讓內容自動壓縮
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
@@ -633,9 +644,16 @@ class _TravelDayPageState extends State<TravelDayPage>
             ],
           ),
           const SizedBox(height: 4),
-          Text('$duration 小時', style: const TextStyle(color: Colors.white, fontSize: 12)),
+          Flexible( // ✅ 這一層確保不超出方塊高度
+            child: Text(
+              '$duration 小時',
+              style: const TextStyle(color: Colors.white, fontSize: 12),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
         ],
       ),
+
     );
 
     if (isFeedback) {
@@ -812,57 +830,51 @@ class _TravelDayPageState extends State<TravelDayPage>
     );
   }
 
-  List<Positioned> _buildDropTargets(int dayIndex) {
-    return List.generate(13, (i) {
-      final hour = 8 + i;
-      return Positioned(
-        top: i * 80.0,
-        left: 0,
-        right: 0,
-        height: 80,
-        child: DragTarget<Map<String, String>>(
-          onWillAccept: (_) => !widget.readOnly, // ❌ 唯讀時禁止拖曳
-          onAccept: (Map<String, String> spot) {
-            if (widget.readOnly) return; // ❌ 防止強制觸發
-            setState(() {
-              final spotName = spot['Name'];
+  Widget _buildDropTargets(int dayIndex) {
+    return Positioned.fill(
+      child: Builder(
+        builder: (innerContext) {
+          return DragTarget<Map<String, String>>(
+            onWillAccept: (_) => !widget.readOnly,
+            onAcceptWithDetails: (DragTargetDetails<Map<String, String>> details) {
+              final RenderBox box = innerContext.findRenderObject() as RenderBox;
+              final localOffset = box.globalToLocal(details.offset);
+              final estimatedHour = (localOffset.dy / hourBlockHeight).clamp(0, 23).floor();
 
-              dailySpots[dayIndex].removeWhere((s) => s['Name'] == spotName);
-              spot['Time'] = hour.toString();
-              dailySpots[dayIndex].add(spot);
+              setState(() {
+                final spot = details.data;
 
-              dailySpots[dayIndex].sort((a, b) {
-                final aTime = int.tryParse(a['Time'] ?? '8') ?? 8;
-                final bTime = int.tryParse(b['Time'] ?? '8') ?? 8;
-                return aTime.compareTo(bTime);
+                /// ✅ 改成比對時間 + 名稱（更穩定）
+                dailySpots[dayIndex].removeWhere((s) =>
+                    s['Name'] == spot['Name'] && s['Time'] == spot['Time']);
+
+                spot['Time'] = estimatedHour.toString();
+                dailySpots[dayIndex].add(spot);
+
+                // ✅ 排序景點（根據時間）
+                dailySpots[dayIndex].sort((a, b) =>
+                    (int.tryParse(a['Time'] ?? '0') ?? 0)
+                        .compareTo(int.tryParse(b['Time'] ?? '0') ?? 0));
+
+                _generateTransports();
+                _saveNotesToStorage();
               });
-
-              _generateTransports();
-              // ⬇️ 儲存到 SharedPreferences
-              _saveNotesToStorage();
-              
-            });
-          },
-
-
-          builder: (context, candidateData, rejectedData) {
-            return Container(
-              height: 80,
-              width: double.infinity,
-              decoration: BoxDecoration(
+            },
+            builder: (context, candidateData, rejectedData) {
+              return Container(
                 color: candidateData.isNotEmpty
-                    ? Colors.blue.withOpacity(0.1)
+                    ? Colors.blue.withOpacity(0.05)
                     : Colors.transparent,
-                border: Border(
-                  top: BorderSide(color: Colors.grey.shade300),
-                ),
-              ),
-            );
-          },
-        ),
-      );
-    });
+              );
+            },
+          );
+        },
+      ),
+    );
   }
+
+
+
 
 
 
