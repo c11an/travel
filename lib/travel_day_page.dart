@@ -41,7 +41,11 @@ class _TravelDayPageState extends State<TravelDayPage>
   late int dayCount;
   late List<List<Map<String, String>>> dailySpots;
   late List<List<String>> dailyTransports;
-  static const double hourBlockHeight = 100.0;
+  //static const double hourBlockHeight = 100.0;
+  static const hourBlockHeight = 100.0;
+  static const distanceBlockHeight = 30.0;
+  static const blockHeight = hourBlockHeight + distanceBlockHeight;
+
 
 
   @override
@@ -142,8 +146,8 @@ class _TravelDayPageState extends State<TravelDayPage>
           setState(() {
             final List<Map<String, String>> validSpots = [];
 
-            // ⭐ 初始化時間從 00:00 開始
-            int currentTime = 0;
+            // ⭐ 初始化時間從 08:00 開始
+            int currentTime = 8;
 
             for (int i = 0; i < selectedSpots.length; i++) {
               final s = selectedSpots[i];
@@ -187,6 +191,10 @@ class _TravelDayPageState extends State<TravelDayPage>
             }
 
             dailySpots[returnedDayIndex].addAll(validSpots);
+            // 加入這段排序：
+            // dailySpots[returnedDayIndex].sort((a, b) =>
+            //     (int.tryParse(a['Time'] ?? '0') ?? 0)
+            //         .compareTo(int.tryParse(b['Time'] ?? '0') ?? 0));
             debugPrint("📌 加入景點成功：${dailySpots[returnedDayIndex]}");
 
             _generateTransports();
@@ -407,77 +415,94 @@ class _TravelDayPageState extends State<TravelDayPage>
 
                           final totalHeight = (maxEndTime * hourBlockHeight + hourBlockHeight).clamp(600.0, hourBlockHeight * 13); // 最多顯示 13 小時區塊
 
-                          return SingleChildScrollView(
+                          return SingleChildScrollView (
                             scrollDirection: Axis.vertical,
                             child: ConstrainedBox(
-                              constraints: BoxConstraints(minHeight: totalHeight),
+                              constraints: BoxConstraints(minHeight: blockHeight * 24),
                               child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
+                                  // 時間標籤欄
                                   Column(
                                     children: List.generate(24, (i) {
-                                      final hour = i;
+                                      final hour = i.toString().padLeft(2, '0');
                                       return SizedBox(
-                                        height: hourBlockHeight,
+                                        height: blockHeight,
                                         width: 80,
                                         child: Center(
-                                          child: Text(
-                                            "${hour.toString().padLeft(2, '0')}:00",
-                                            style: const TextStyle(fontSize: 16),
-                                          ),
+                                          child: Text('$hour:00'),
                                         ),
                                       );
                                     }),
                                   ),
                                   const SizedBox(width: 12),
+
+                                  // 景點 + 區塊
                                   SizedBox(
                                     width: max(constraints.maxWidth - 92, 200),
-                                    height: totalHeight, // ✅ 加上高度，修正 Stack 無法 layout 問題
+                                    height: blockHeight * 24,
                                     child: Stack(
                                       children: [
-                                        ...List.generate(maxEndTime, (i) {
-                                          return Positioned(
-                                            top: i * hourBlockHeight,
-                                            left: 0,
-                                            right: 0,
-                                            height: hourBlockHeight,
-                                            child: Container(
-                                              decoration: BoxDecoration(
-                                                border: Border(
-                                                  top: BorderSide(color: Colors.grey.shade300),
+                                        // 背景時間格 + 交通提示
+                                        ...List.generate(24, (i) {
+                                          final transports = dayIndex < dailyTransports.length
+                                              ? dailyTransports[dayIndex]
+                                              : [];
+                                          final currentIndex = dailySpots[dayIndex].indexWhere(
+                                              (s) => int.tryParse(s['Time'] ?? '') == i);
+                                          final hasTransport = currentIndex != -1 && currentIndex < transports.length;
+
+                                          return Stack(
+                                            children: [
+                                              // 景點主區塊
+                                              Positioned(
+                                                top: i * blockHeight,
+                                                left: 0,
+                                                right: 0,
+                                                height: hourBlockHeight,
+                                                child: Container(
+                                                  decoration: BoxDecoration(
+                                                    border: Border(
+                                                      top: BorderSide(color: Colors.grey.shade300),
+                                                    ),
+                                                  ),
                                                 ),
                                               ),
-                                            ),
-                                          );
-                                        }),
-                                        _buildDropTargets(dayIndex),
-                                        ...spots.asMap().entries.map((entry) {
-                                          final spot = entry.value;
-                                          final startHour = int.tryParse(spot['Time'] ?? '8') ?? 8;
-                                          final duration = int.tryParse(spot['Duration'] ?? '1') ?? 1;
 
-                                          return Positioned(
-                                            top: startHour * hourBlockHeight,
-                                            left: 0,
-                                            right: 0,
-                                            height: duration * hourBlockHeight,
-                                            child: Draggable<Map<String, String>>(
-                                              data: spot,
-                                              feedback: Material(
-                                                color: Colors.transparent,
-                                                child: _buildSpotBlock(spot, dayIndex, isFeedback: true),
-                                              ),
-                                              childWhenDragging: Opacity(
-                                                opacity: 0.3,
-                                                child: _buildSpotBlock(spot, dayIndex),
-                                              ),
-                                              child: GestureDetector(
-                                                onTap: () => _showSpotInfoDialog(spot),
-                                                child: _buildSpotBlock(spot, dayIndex),
-                                              ),
-                                            ),
+                                              // 交通提示區塊
+                                              if (hasTransport)
+                                                Positioned(
+                                                  top: i * blockHeight + hourBlockHeight,
+                                                  left: 0,
+                                                  right: 0,
+                                                  height: distanceBlockHeight,
+                                                  child: Center(
+                                                    child: Text(
+                                                      transports[currentIndex],
+                                                      style: TextStyle(
+                                                        fontSize: 12,
+                                                        color: transports[currentIndex].contains('步行')
+                                                            ? Colors.green
+                                                            : transports[currentIndex].contains('機車')
+                                                                ? Colors.orange
+                                                                : Colors.blue,
+                                                      ),
+                                                      overflow: TextOverflow.ellipsis,
+                                                    ),
+                                                  ),
+                                                ),
+                                            ],
                                           );
                                         }),
+
+                                        // 拖曳區
+                                        _buildDropTargets(dayIndex),
+
+                                        // 景點方塊
+                                        ..._buildSpotAndTransportBlocks(
+                                          List<Map<String, String>>.from(spots),
+                                          dayIndex,
+                                        ),
                                       ],
                                     ),
                                   ),
@@ -485,6 +510,8 @@ class _TravelDayPageState extends State<TravelDayPage>
                               ),
                             ),
                           );
+
+
                         },
                       ),
 
@@ -872,6 +899,80 @@ class _TravelDayPageState extends State<TravelDayPage>
       ),
     );
   }
+
+  List<Widget> _buildSpotAndTransportBlocks(
+    List<Map<String, String>> spots,
+    int dayIndex,
+  ) {
+    final widgets = <Widget>[];
+
+    for (int i = 0; i < spots.length; i++) {
+      final spot = spots[i];
+      final startHour = int.tryParse(spot['Time'] ?? '8') ?? 8;
+      final duration = int.tryParse(spot['Duration'] ?? '1') ?? 1;
+
+      // 總高度 = 景點 + 運輸資訊區域（給它固定 20）
+      final totalHeight = duration * hourBlockHeight + (i < spots.length - 1 ? 20.0 : 0);
+
+      widgets.add(
+        Positioned(
+          top: startHour * hourBlockHeight,
+          left: 0,
+          right: 0,
+          height: totalHeight,
+          child: Column(
+            children: [
+              // ✅ 景點區塊
+              Expanded(
+                child: Draggable<Map<String, String>>(
+                  data: spot,
+                  feedback: Material(
+                    color: Colors.transparent,
+                    child: _buildSpotBlock(spot, dayIndex, isFeedback: true),
+                  ),
+                  childWhenDragging: Opacity(
+                    opacity: 0.3,
+                    child: _buildSpotBlock(spot, dayIndex),
+                  ),
+                  child: GestureDetector(
+                    onTap: () => _showSpotInfoDialog(spot),
+                    child: _buildSpotBlock(spot, dayIndex),
+                  ),
+                ),
+              ),
+
+              // ✅ 運輸區塊（非最後一個景點才顯示）
+              if (i < dailyTransports[dayIndex].length)
+                Container(
+                  height: 20,
+                  width: double.infinity,
+                  alignment: Alignment.center,
+                  child: Text(
+                    dailyTransports[dayIndex][i],
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: dailyTransports[dayIndex][i].contains('步行')
+                          ? Colors.green
+                          : dailyTransports[dayIndex][i].contains('機車')
+                              ? Colors.orange
+                              : Colors.blue,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return widgets;
+  }
+
+
+
 
 
 
