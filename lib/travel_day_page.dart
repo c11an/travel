@@ -8,6 +8,8 @@ import 'package:travel/travel_note_page.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'travel_form_page.dart';
 import 'map_view_page.dart'; // ⭐️ 要新增的地圖顯示頁面
+import 'notification_helper.dart';
+
 
 class TravelDayPage extends StatefulWidget {
   final String tripName;
@@ -413,16 +415,17 @@ class _TravelDayPageState extends State<TravelDayPage>
                             return start + duration;
                           }).fold<int>(0, (prev, end) => end > prev ? end : prev);
 
-                          final totalHeight = (maxEndTime * hourBlockHeight + hourBlockHeight).clamp(600.0, hourBlockHeight * 13); // 最多顯示 13 小時區塊
+                          final totalHeight = (maxEndTime * blockHeight + blockHeight).clamp(600.0, blockHeight * 24);
 
-                          return SingleChildScrollView (
+
+                          return SingleChildScrollView(
                             scrollDirection: Axis.vertical,
                             child: ConstrainedBox(
                               constraints: BoxConstraints(minHeight: blockHeight * 24),
                               child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  // 時間標籤欄
+                                  // ⏰ 時間欄
                                   Column(
                                     children: List.generate(24, (i) {
                                       final hour = i.toString().padLeft(2, '0');
@@ -437,13 +440,13 @@ class _TravelDayPageState extends State<TravelDayPage>
                                   ),
                                   const SizedBox(width: 12),
 
-                                  // 景點 + 區塊
+                                  // 🗺️ 景點與距離圖層
                                   SizedBox(
                                     width: max(constraints.maxWidth - 92, 200),
                                     height: blockHeight * 24,
                                     child: Stack(
                                       children: [
-                                        // 背景時間格 + 交通提示
+                                        // 背景格與距離提示
                                         ...List.generate(24, (i) {
                                           final transports = dayIndex < dailyTransports.length
                                               ? dailyTransports[dayIndex]
@@ -454,7 +457,7 @@ class _TravelDayPageState extends State<TravelDayPage>
 
                                           return Stack(
                                             children: [
-                                              // 景點主區塊
+                                              // 🔲 景點主格線區塊
                                               Positioned(
                                                 top: i * blockHeight,
                                                 left: 0,
@@ -468,37 +471,38 @@ class _TravelDayPageState extends State<TravelDayPage>
                                                   ),
                                                 ),
                                               ),
-
-                                              // 交通提示區塊
-                                              if (hasTransport)
-                                                Positioned(
-                                                  top: i * blockHeight + hourBlockHeight,
-                                                  left: 0,
-                                                  right: 0,
-                                                  height: distanceBlockHeight,
-                                                  child: Center(
-                                                    child: Text(
-                                                      transports[currentIndex],
-                                                      style: TextStyle(
-                                                        fontSize: 12,
-                                                        color: transports[currentIndex].contains('步行')
-                                                            ? Colors.green
-                                                            : transports[currentIndex].contains('機車')
-                                                                ? Colors.orange
-                                                                : Colors.blue,
-                                                      ),
-                                                      overflow: TextOverflow.ellipsis,
-                                                    ),
-                                                  ),
-                                                ),
+                                              // 🚗 移動距離提示
+                                              Positioned(
+                                                top: i * blockHeight + hourBlockHeight,
+                                                left: 0,
+                                                right: 0,
+                                                height: distanceBlockHeight,
+                                                child: hasTransport
+                                                    ? Center(
+                                                        child: Text(
+                                                          transports[currentIndex],
+                                                          style: TextStyle(
+                                                            fontSize: 12,
+                                                            fontWeight: FontWeight.w500,
+                                                            color: transports[currentIndex].contains('步行')
+                                                                ? Colors.green
+                                                                : transports[currentIndex].contains('機車')
+                                                                    ? Colors.orange
+                                                                    : Colors.blue,
+                                                          ),
+                                                          overflow: TextOverflow.ellipsis,
+                                                        ),
+                                                      )
+                                                    : const SizedBox.shrink(),
+                                              ),
                                             ],
                                           );
                                         }),
 
-                                        // 拖曳區
+                                        // 📥 拖曳目標區
                                         _buildDropTargets(dayIndex),
 
-                                        // 景點方塊
+                                        // 📦 景點方塊與距離提示插入邏輯
                                         ..._buildSpotAndTransportBlocks(
                                           List<Map<String, String>>.from(spots),
                                           dayIndex,
@@ -510,6 +514,7 @@ class _TravelDayPageState extends State<TravelDayPage>
                               ),
                             ),
                           );
+
 
 
                         },
@@ -866,7 +871,8 @@ class _TravelDayPageState extends State<TravelDayPage>
             onAcceptWithDetails: (DragTargetDetails<Map<String, String>> details) {
               final RenderBox box = innerContext.findRenderObject() as RenderBox;
               final localOffset = box.globalToLocal(details.offset);
-              final estimatedHour = (localOffset.dy / hourBlockHeight).clamp(0, 23).floor();
+              final estimatedHour = (localOffset.dy / blockHeight).clamp(0, 23).floor();
+
 
               setState(() {
                 final spot = details.data;
@@ -900,76 +906,89 @@ class _TravelDayPageState extends State<TravelDayPage>
     );
   }
 
-  List<Widget> _buildSpotAndTransportBlocks(
-    List<Map<String, String>> spots,
-    int dayIndex,
-  ) {
-    final widgets = <Widget>[];
+    List<Widget> _buildSpotAndTransportBlocks(
+      List<Map<String, String>> spots,
+      int dayIndex,
+    ) {
+      final widgets = <Widget>[];
 
-    for (int i = 0; i < spots.length; i++) {
-      final spot = spots[i];
-      final startHour = int.tryParse(spot['Time'] ?? '8') ?? 8;
-      final duration = int.tryParse(spot['Duration'] ?? '1') ?? 1;
+      for (int i = 0; i < spots.length; i++) {
+        final spot = spots[i];
+        final startHour = int.tryParse(spot['Time'] ?? '8') ?? 8;
+        final duration = int.tryParse(spot['Duration'] ?? '1') ?? 1;
 
-      // 總高度 = 景點 + 運輸資訊區域（給它固定 20）
-      final totalHeight = duration * hourBlockHeight + (i < spots.length - 1 ? 20.0 : 0);
+        final spotHeight = duration * hourBlockHeight;
+        final showTransport = i < dailyTransports[dayIndex].length;
+        final transportHeight = showTransport ? distanceBlockHeight : 0;
 
-      widgets.add(
-        Positioned(
-          top: startHour * hourBlockHeight,
-          left: 0,
-          right: 0,
-          height: totalHeight,
-          child: Column(
-            children: [
-              // ✅ 景點區塊
-              Expanded(
-                child: Draggable<Map<String, String>>(
-                  data: spot,
-                  feedback: Material(
-                    color: Colors.transparent,
-                    child: _buildSpotBlock(spot, dayIndex, isFeedback: true),
-                  ),
-                  childWhenDragging: Opacity(
-                    opacity: 0.3,
-                    child: _buildSpotBlock(spot, dayIndex),
-                  ),
-                  child: GestureDetector(
-                    onTap: () => _showSpotInfoDialog(spot),
-                    child: _buildSpotBlock(spot, dayIndex),
-                  ),
+        final top = startHour * blockHeight;
+        final totalHeight = spotHeight + transportHeight;
+
+        widgets.add(
+          Positioned(
+            top: top,
+            left: 0,
+            right: 0,
+            height: totalHeight,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // ✅ 景點方塊（唯讀不顯示拖曳）
+                SizedBox(
+                  height: spotHeight,
+                  child: widget.readOnly
+                      ? GestureDetector(
+                          onTap: () => _showSpotInfoDialog(spot),
+                          child: _buildSpotBlock(spot, dayIndex),
+                        )
+                      : Draggable<Map<String, String>>(
+                          data: spot,
+                          feedback: Material(
+                            color: Colors.transparent,
+                            child: _buildSpotBlock(spot, dayIndex, isFeedback: true),
+                          ),
+                          childWhenDragging: Opacity(
+                            opacity: 0.3,
+                            child: _buildSpotBlock(spot, dayIndex),
+                          ),
+                          child: GestureDetector(
+                            onTap: () => _showSpotInfoDialog(spot),
+                            child: _buildSpotBlock(spot, dayIndex),
+                          ),
+                        ),
                 ),
-              ),
 
-              // ✅ 運輸區塊（非最後一個景點才顯示）
-              if (i < dailyTransports[dayIndex].length)
-                Container(
-                  height: 20,
-                  width: double.infinity,
-                  alignment: Alignment.center,
-                  child: Text(
-                    dailyTransports[dayIndex][i],
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      color: dailyTransports[dayIndex][i].contains('步行')
-                          ? Colors.green
-                          : dailyTransports[dayIndex][i].contains('機車')
-                              ? Colors.orange
-                              : Colors.blue,
+                // ✅ 交通距離提示
+                if (showTransport)
+                  Container(
+                    height: distanceBlockHeight,
+                    width: double.infinity,
+                    alignment: Alignment.center,
+                    child: Text(
+                      dailyTransports[dayIndex][i],
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: dailyTransports[dayIndex][i].contains('步行')
+                            ? Colors.green
+                            : dailyTransports[dayIndex][i].contains('機車')
+                                ? Colors.orange
+                                : Colors.blue,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
-        ),
-      );
+        );
+      }
+
+      return widgets;
     }
 
-    return widgets;
-  }
+
 
 
 

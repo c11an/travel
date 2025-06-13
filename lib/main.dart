@@ -2,15 +2,30 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:travel/home.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:timezone/data/latest.dart' as tz;
+import 'notification_helper.dart'; // ✅ 引入通知輔助檔案
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized(); // ✅ 確保初始化完成
 
   try {
-    await dotenv.load(fileName: ".env"); // ✅ 開啟 .env
+    await dotenv.load(fileName: ".env"); // ✅ 載入 .env 設定
   } catch (e) {
     print("❌ 無法載入 .env: $e");
   }
+
+  // ✅ 初始化本地時區（通知需要）
+  tz.initializeTimeZones();
+
+  // ✅ 初始化通知插件
+  const AndroidInitializationSettings initializationSettingsAndroid =
+      AndroidInitializationSettings('@mipmap/ic_launcher');
+
+  const InitializationSettings initializationSettings =
+      InitializationSettings(android: initializationSettingsAndroid);
+
+  await flutterLocalNotificationsPlugin.initialize(initializationSettings);
 
   runApp(const MyApp());
 }
