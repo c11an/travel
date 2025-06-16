@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:travel/home.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:timezone/data/latest.dart' as tz;
+// import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+// import 'package:timezone/data/latest.dart' as tz;
 import 'notification_helper.dart'; // ✅ 引入通知輔助檔案
 
 Future<void> main() async {
@@ -15,17 +15,17 @@ Future<void> main() async {
     print("❌ 無法載入 .env: $e");
   }
 
-  // ✅ 初始化本地時區（通知需要）
-  tz.initializeTimeZones();
+  // // ✅ 初始化本地時區（通知需要）
+  // tz.initializeTimeZones();
 
-  // ✅ 初始化通知插件
-  const AndroidInitializationSettings initializationSettingsAndroid =
-      AndroidInitializationSettings('@mipmap/ic_launcher');
+  // // ✅ 初始化通知插件
+  // const AndroidInitializationSettings initializationSettingsAndroid =
+  //     AndroidInitializationSettings('@mipmap/ic_launcher');
 
-  const InitializationSettings initializationSettings =
-      InitializationSettings(android: initializationSettingsAndroid);
+  // const InitializationSettings initializationSettings =
+  //     InitializationSettings(android: initializationSettingsAndroid);
 
-  await flutterLocalNotificationsPlugin.initialize(initializationSettings);
+  //await flutterLocalNotificationsPlugin.initialize(initializationSettings);
 
   runApp(const MyApp());
 }

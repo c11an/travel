@@ -8,7 +8,6 @@ import 'package:travel/travel_note_page.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'travel_form_page.dart';
 import 'map_view_page.dart'; // ⭐️ 要新增的地圖顯示頁面
-import 'notification_helper.dart';
 
 
 class TravelDayPage extends StatefulWidget {
@@ -867,7 +866,7 @@ class _TravelDayPageState extends State<TravelDayPage>
       child: Builder(
         builder: (innerContext) {
           return DragTarget<Map<String, String>>(
-            onWillAccept: (_) => !widget.readOnly,
+            onWillAcceptWithDetails: (_) => !widget.readOnly,
             onAcceptWithDetails: (DragTargetDetails<Map<String, String>> details) {
               final RenderBox box = innerContext.findRenderObject() as RenderBox;
               final localOffset = box.globalToLocal(details.offset);

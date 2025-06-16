@@ -44,6 +44,9 @@ class _TravelFormPageState extends State<TravelFormPage> {
 
   bool isListExpanded = true;
 
+  Marker? _activeMarker;
+
+
   String? selectedCategory = "景點"; // 預設選擇景點
   @override
   void initState() {
@@ -416,39 +419,8 @@ class _TravelFormPageState extends State<TravelFormPage> {
 
   @override
 Widget build(BuildContext context) {
-  final markers = (selectedCity == null)
-      ? <Marker>{}
-      : filteredSpots
-          .map((spot) {
-            final lat = double.tryParse(spot['Py'] ?? '');
-            final lng = double.tryParse(spot['Px'] ?? '');
-            if (lat == null || lng == null) return null;
+  final markers = _activeMarker != null ? {_activeMarker!} : <Marker>{};
 
-            final isFavorited = _isFavorited(spot);
-            final isSelected = selectedSpots.any((s) => s['Name'] == spot['Name']);
-
-            BitmapDescriptor icon;
-            if (isSelected) {
-              icon = selectedMarker ?? BitmapDescriptor.defaultMarker;
-            } else if (isFavorited) {
-              icon = favoritedMarker ?? BitmapDescriptor.defaultMarker;
-            } else {
-              icon = defaultMarker ?? BitmapDescriptor.defaultMarker;
-            }
-
-            return Marker(
-              markerId: MarkerId(spot['Name'] ?? '無名'),
-              position: LatLng(lat, lng),
-              icon: icon,
-              onTap: () => _showSpotDialog(spot),
-              infoWindow: InfoWindow(
-                title: spot['Name'],
-                snippet: spot['Add'] ?? '',
-              ),
-            );
-          })
-          .whereType<Marker>()
-          .toSet();
 
   return Scaffold(
     appBar: AppBar(title: const Text('探索地圖')),
@@ -609,12 +581,29 @@ Widget build(BuildContext context) {
                             final lat = double.tryParse(spot['Py'] ?? '');
                             final lng = double.tryParse(spot['Px'] ?? '');
                             if (_mapController != null && lat != null && lng != null) {
+                              final target = LatLng(lat, lng);
+
+                              // ✅ 更新 marker，只顯示這一筆
+                              setState(() {
+                                _activeMarker = Marker(
+                                  markerId: MarkerId(spot['Name'] ?? '無名'),
+                                  position: target,
+                                  icon: defaultMarker ?? BitmapDescriptor.defaultMarker,
+                                  onTap: () => _showSpotDialog(spot),
+                                  infoWindow: InfoWindow(
+                                    title: spot['Name'],
+                                    snippet: spot['Add'] ?? '',
+                                  ),
+                                );
+                              });
+
+                              // ✅ 移動地圖到該 marker
                               _mapController!.animateCamera(
-                                CameraUpdate.newLatLng(LatLng(lat, lng)),
+                                CameraUpdate.newLatLng(target),
                               );
                             }
-                            _showSpotDialog(spot);
                           },
+
                         );
                       },
                     ),
