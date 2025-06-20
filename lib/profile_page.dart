@@ -29,12 +29,15 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
   int get followingCount => followingUsers.length;
   int get followerCount => followerUsers.length;
   int favoriteSpotCount = 15;
+  String? _nickname;
+
 
   @override
   void initState() {
     super.initState();
     _loadUploadedTrips();
     _loadAvatarImage();
+    _loadNickname();
     _tabController = TabController(length: 2, vsync: this);
   }
 
@@ -78,6 +81,14 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
       }
     }
   }
+
+  Future<void> _loadNickname() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _nickname = prefs.getString('nickname') ?? '旅人';
+    });
+  }
+
 
   void _logout() async {
     final confirmed = await showDialog<bool>(
@@ -189,9 +200,9 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
                 const SizedBox(width: 16),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
-                    Text('使用者名稱', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                    Text('帳號資訊'),
+                  children: [
+                    Text(_nickname ?? '旅人', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    const Text('帳號資訊'),
                   ],
                 ),
               ],

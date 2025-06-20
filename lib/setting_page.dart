@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:travel/login.dart'; // 回到登入用
 import 'package:travel/main.dart'; // 切換深色模式用
+import 'package:travel/nickname_page.dart';
 
 class SettingPage extends StatefulWidget {
   const SettingPage({super.key});
@@ -52,7 +53,7 @@ class _SettingPageState extends State<SettingPage> {
     if (!mounted) return;
     Navigator.pushAndRemoveUntil(
       context,
-      MaterialPageRoute(builder: (_) => const LoginPage()),
+      MaterialPageRoute(builder: (_) => const NicknamePage()),
       (route) => false,
     );
   }

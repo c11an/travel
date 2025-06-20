@@ -2,30 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:travel/home.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-// import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-// import 'package:timezone/data/latest.dart' as tz;
-import 'notification_helper.dart'; // ✅ 引入通知輔助檔案
+import 'package:travel/nickname_page.dart';
 
-Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized(); // ✅ 確保初始化完成
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
 
   try {
-    await dotenv.load(fileName: ".env"); // ✅ 載入 .env 設定
+    await dotenv.load(fileName: ".env");
   } catch (e) {
     print("❌ 無法載入 .env: $e");
   }
-
-  // // ✅ 初始化本地時區（通知需要）
-  // tz.initializeTimeZones();
-
-  // // ✅ 初始化通知插件
-  // const AndroidInitializationSettings initializationSettingsAndroid =
-  //     AndroidInitializationSettings('@mipmap/ic_launcher');
-
-  // const InitializationSettings initializationSettings =
-  //     InitializationSettings(android: initializationSettingsAndroid);
-
-  //await flutterLocalNotificationsPlugin.initialize(initializationSettings);
 
   runApp(const MyApp());
 }
@@ -42,11 +28,13 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   ThemeMode _themeMode = ThemeMode.light;
+  Widget _defaultPage = const Scaffold(body: Center(child: CircularProgressIndicator()));
 
   @override
   void initState() {
     super.initState();
     _loadTheme();
+    _checkFirstTime();
   }
 
   Future<void> _loadTheme() async {
@@ -54,6 +42,14 @@ class _MyAppState extends State<MyApp> {
     final isDark = prefs.getBool('isDarkMode') ?? false;
     setState(() {
       _themeMode = isDark ? ThemeMode.dark : ThemeMode.light;
+    });
+  }
+
+  Future<void> _checkFirstTime() async {
+    final prefs = await SharedPreferences.getInstance();
+    final nickname = prefs.getString('nickname');
+    setState(() {
+      _defaultPage = nickname == null ? const NicknamePage() : const HomePage();
     });
   }
 
@@ -89,7 +85,7 @@ class _MyAppState extends State<MyApp> {
         ),
         useMaterial3: true,
       ),
-      home: const HomePage(),
+      home: _defaultPage,
     );
   }
 }

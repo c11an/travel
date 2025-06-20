@@ -493,37 +493,37 @@ class _HomePageState extends State<HomePage> {
             const SizedBox(height: 20),
 
             // 📊 榜單功能：地點、類別選單
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.green.shade50,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    '📊 榜單查詢',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 10),
-                  // 地點選單
-                  ElevatedButton(
-                    onPressed: () => _showLocationDialog(context),
-                    child: Text(
-                      "地點：${selectedCity ?? "未選擇"} ${selectedTown ?? ""}",
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  // 類別選單
-                  ElevatedButton(
-                    onPressed: () => _showCategoryDialog(context),
-                    child: Text("類別：${selectedCategory ?? "未選擇"}"),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
+            // Container(
+            //   padding: const EdgeInsets.all(16),
+            //   decoration: BoxDecoration(
+            //     color: Colors.green.shade50,
+            //     borderRadius: BorderRadius.circular(12),
+            //   ),
+            //   child: Column(
+            //     crossAxisAlignment: CrossAxisAlignment.start,
+            //     children: [
+            //       const Text(
+            //         '📊 榜單查詢',
+            //         style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            //       ),
+            //       const SizedBox(height: 10),
+            //       // 地點選單
+            //       ElevatedButton(
+            //         onPressed: () => _showLocationDialog(context),
+            //         child: Text(
+            //           "地點：${selectedCity ?? "未選擇"} ${selectedTown ?? ""}",
+            //         ),
+            //       ),
+            //       const SizedBox(height: 10),
+            //       // 類別選單
+            //       ElevatedButton(
+            //         onPressed: () => _showCategoryDialog(context),
+            //         child: Text("類別：${selectedCategory ?? "未選擇"}"),
+            //       ),
+            //     ],
+            //   ),
+            // ),
+            // const SizedBox(height: 20),
 
             // 📅 近期活動（使用文化部開放資料 API）
             Align(

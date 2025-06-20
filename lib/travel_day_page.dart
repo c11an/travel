@@ -165,6 +165,12 @@ class _TravelDayPageState extends State<TravelDayPage>
                 continue;
               }
 
+              // 找下一個可用時間（避免重疊）
+              while (dailySpots[returnedDayIndex].any((s) =>
+                  int.tryParse(s['Time'] ?? '0') == currentTime)) {
+                currentTime++;
+              }
+
               final timeStr = currentTime.toString().padLeft(2, '0');
 
               validSpots.add({
@@ -529,21 +535,24 @@ class _TravelDayPageState extends State<TravelDayPage>
           ),
         ],
       ),
-      bottomNavigationBar: Padding(
-        padding: const EdgeInsets.all(12),
-        child: SizedBox(
-          width: double.infinity,
-          height: 50,
-          child: ElevatedButton.icon(
-            onPressed: _saveTrip,
-            icon: const Icon(Icons.save),
-            label: const Text("儲存行程"),
-            style: ElevatedButton.styleFrom(
-              textStyle: const TextStyle(fontSize: 16),
+      bottomNavigationBar: widget.readOnly
+      ? null
+      : Padding(
+          padding: const EdgeInsets.all(12),
+          child: SizedBox(
+            width: double.infinity,
+            height: 50,
+            child: ElevatedButton.icon(
+              onPressed: _saveTrip,
+              icon: const Icon(Icons.save),
+              label: const Text("儲存行程"),
+              style: ElevatedButton.styleFrom(
+                textStyle: const TextStyle(fontSize: 16),
+              ),
             ),
           ),
         ),
-      ),
+
 
     );
   }
@@ -705,13 +714,16 @@ class _TravelDayPageState extends State<TravelDayPage>
         child: const Icon(Icons.delete, color: Colors.white),
       ),
       onDismissed: (_) {
-        setState(() {
-          dailySpots[dayIndex].remove(spot);
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('🗑️ 已刪除 $name')),
-        );
+        if (!widget.readOnly) {
+          setState(() {
+            dailySpots[dayIndex].remove(spot);
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('🗑️ 已刪除 $name')),
+          );
+        }
       },
+
       child: GestureDetector(
         onTap: () => _showSpotInfoDialog(spot),
         child: container,
