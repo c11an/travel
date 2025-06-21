@@ -14,6 +14,8 @@ class OpenAIService {
     required DateTime? startDate,
     required DateTime? endDate,
     required List<Map<String, String>> availableSpots,
+    String mood = '',
+    String need = '',
   }) async {
     try {
       print("📥 開始呼叫 GPT API...");
@@ -86,6 +88,8 @@ class OpenAIService {
     required DateTime? startDate,
     required DateTime? endDate,
     required List<Map<String, String>> availableSpots,
+    String mood = '',
+    String need = '',
   }) {
     final dateInfo = (startDate != null && endDate != null)
         ? "從 ${DateFormat('yyyy/MM/dd').format(startDate)} 到 ${DateFormat('yyyy/MM/dd').format(endDate)}"
@@ -93,7 +97,6 @@ class OpenAIService {
 
     final typesList = types.isNotEmpty ? types.join(", ") : "不拘";
 
-    // ✅ 限制最多傳入 100 筆景點，避免 token 超限
     final spotNames = availableSpots
         .map((s) => s['Name'])
         .whereType<String>()
@@ -105,23 +108,31 @@ class OpenAIService {
     final joinedSpots = spotNames.join("、");
 
     return """
-我正在規劃一趟旅遊，地點是 $city。我的預算是每人 $budget 元。
-我希望行程包含以下類型：$typesList。
-我希望的交通方式是：$transport。
-旅遊日期為：$dateInfo。
+  我正在規劃一趟台灣的旅遊行程，地點是 $city。我的預算是每人 NT\$${budget.toInt()}，旅遊日期為：$dateInfo。
+  我希望的交通方式是：$transport。
+  我偏好的行程類型有：$typesList。
 
-以下是可以使用的景點清單（限制於此清單內）：$joinedSpots。
-請你務必只根據這些景點規劃行程，不要出現清單以外的名稱。
+  目前我的心情是：「$mood」，我特別希望這次旅程能夠：「$need」。
 
-請幫我規劃一份每日行程表，格式如下：
-Day 1：
-  上午：
-  下午：
-  晚上：
-Day 2：
-...
+  ⚠️ 請務必根據以下偏好做出安排：
+  - 若提到「不想曬太陽」，請避免安排戶外、炎熱、缺乏遮蔽的景點（如古道、登山、牧場、沙灘等），改安排有遮蔽、室內、或傍晚的行程。
+  - 若提到「不想人擠人」，請避免安排熱門或擁擠的地點，改安排冷門、寧靜、有座位的空間。
+  - 若提到「想放鬆」或「壓力大」，請安排節奏較慢的景點，例如美術館、書店、溫泉、咖啡廳、森林步道等。
 
-每個景點請簡短說明特色，並考慮旅遊動線與預算。
-""";
+  請根據以下可用的景點清單規劃，**只能選用下列景點名稱**：$joinedSpots。
+
+  請幫我規劃三日的旅遊行程，格式如下：
+  Day 1：
+    上午：地點名稱 - 簡短說明
+    下午：地點名稱 - 簡短說明
+    晚上：地點名稱 - 簡短說明
+
+  Day 2：
+  ...
+
+  請注意行程動線的合理性與預算控制。不要有廢話解釋，只回傳行程即可。
+  """;
   }
+
+
 }

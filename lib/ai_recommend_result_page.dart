@@ -15,7 +15,11 @@ class AIRecommendResultPage extends StatefulWidget {
   final DateTime? startDate;
   final DateTime? endDate;
   final String? gptRecommendation;
+  final String? mood;
+  final String? need;
+
   final List<Map<String, String>> allSpots; // 🔧 新增
+  
 
 
   const AIRecommendResultPage({
@@ -28,7 +32,10 @@ class AIRecommendResultPage extends StatefulWidget {
     required this.allSpots, // ✅ 接收 allSpots
     this.startDate,
     this.endDate,
+    this.mood,
+    this.need,
     this.gptRecommendation,
+
   });
 
   @override
@@ -38,10 +45,13 @@ class AIRecommendResultPage extends StatefulWidget {
 class _AIRecommendResultPageState extends State<AIRecommendResultPage> {
   List<Map<String, dynamic>> recommendedSpots = [];
   final Set<String> favoriteSpots = {}; // ✅收藏列表
+  
+
 
   @override
   void initState() {
     super.initState();
+    print('🧠 mood: ${widget.mood}, 🎯 need: ${widget.need}');
     _loadRecommendedSpots();
   }
 
@@ -159,12 +169,15 @@ class _AIRecommendResultPageState extends State<AIRecommendResultPage> {
         builder: (_) => TravelDayPage(
           tripName: 'GPT推薦行程',
           startDate: widget.startDate!,
-          endDate: widget.startDate!.add(Duration(days: matchedSpots.length - 1)), // 🔥 重點修正
+          endDate: widget.startDate!.add(Duration(days: matchedSpots.length - 1)),
           budget: widget.budget?.toInt() ?? 0,
           transport: widget.transport ?? '不限',
           initialSpots: matchedSpots,
           readOnly: false,
+          mood: widget.mood,  // 加上這行
+          need: widget.need,  // 加上這行
         ),
+
       ),
     ).then((result) async {
       if (result != null && result is Map<String, dynamic>) {
@@ -233,12 +246,20 @@ class _AIRecommendResultPageState extends State<AIRecommendResultPage> {
               Text(
                 '旅遊時間：${DateFormat('yyyy/MM/dd').format(widget.startDate!)} ~ ${DateFormat('yyyy/MM/dd').format(widget.endDate!)}',
               )
+
             else
               const Text('旅遊時間：未指定'),
-            Text('預算：${widget.budget?.round() ?? 0} 元'),
-            //Text('交通方式：${widget.transport ?? "不限"}'),
-            Text('旅遊類型：${widget.types?.join(', ') ?? "不限"}'),
-            const SizedBox(height: 16),
+              Text('預算：${widget.budget?.round() ?? 0} 元'),
+              //Text('交通方式：${widget.transport ?? "不限"}'),
+              Text('旅遊類型：${widget.types?.join(', ') ?? "不限"}'),
+              const SizedBox(height: 16),
+            
+            if ((widget.mood ?? '').trim().isNotEmpty)
+              Text('🧠 GPT 已考慮您的心情：${widget.mood}'),
+
+            if ((widget.need ?? '').trim().isNotEmpty)
+              Text('🎯 GPT 已考慮您的需求：${widget.need}'),
+
 
             // 🔮 GPT 推薦行程
             if ((widget.gptRecommendation ?? '').trim().isNotEmpty) ...[
@@ -349,6 +370,7 @@ class _AIRecommendResultPageState extends State<AIRecommendResultPage> {
           child: Text(line),
         ));
       }
+
     }
 
     return widgets;

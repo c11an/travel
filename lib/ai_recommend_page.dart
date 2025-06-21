@@ -27,6 +27,10 @@ class _AIRecommendPageState extends State<AIRecommendPage> {
   bool isLoading = false;
   String? recommendationResult;
 
+  final TextEditingController _moodController = TextEditingController();
+  final TextEditingController _needController = TextEditingController();
+
+
   final List<String> cities = [
     "基隆市", "臺北市", "新北市", "桃園市", "新竹市",
     "新竹縣", "苗栗縣", "臺中市", "彰化縣", "南投縣",
@@ -94,15 +98,18 @@ class _AIRecommendPageState extends State<AIRecommendPage> {
 
     try {
       final gptResult = await openAIService
-          .getTravelRecommendation(
-            city: selectedCity!,
-            types: selectedTypes,
-            budget: budget,
-            transport: transport,
-            startDate: startDate,
-            endDate: endDate,
-            availableSpots: allSpots.where((spot) => spot['Region'] == selectedCity).toList(), // ✅ 限制景點來源
-          )
+      .getTravelRecommendation(
+        city: selectedCity!,
+        types: selectedTypes,
+        budget: budget,
+        transport: transport,
+        startDate: startDate,
+        endDate: endDate,
+        mood: _moodController.text.trim(),
+        need: _needController.text.trim(),
+        availableSpots: allSpots.where((spot) => spot['Region'] == selectedCity).toList(),
+      )
+
           .timeout(const Duration(seconds: 20), onTimeout: () {
         print("⚠️ GPT API 請求逾時");
         return "⚠️ ChatGPT 回應逾時，請稍後再試";
@@ -121,7 +128,7 @@ class _AIRecommendPageState extends State<AIRecommendPage> {
         MaterialPageRoute(
           builder: (context) => AIRecommendResultPage(
             spots: filteredSpots,
-            allSpots: allSpots,           // ✅ 新增這行，給 GPT 行程比對用
+            allSpots: allSpots,
             city: selectedCity,
             budget: budget,
             transport: transport,
@@ -129,9 +136,12 @@ class _AIRecommendPageState extends State<AIRecommendPage> {
             startDate: startDate,
             endDate: endDate,
             gptRecommendation: recommendationResult,
+            mood: _moodController.text.trim(),  // ✅ 傳入 mood
+            need: _needController.text.trim(),  // ✅ 傳入 need
           ),
         ),
       );
+
     } catch (e) {
       print("❌ 發生錯誤：$e");
       setState(() {
@@ -271,6 +281,26 @@ class _AIRecommendPageState extends State<AIRecommendPage> {
                   });
                 },
               ),
+              const SizedBox(height: 16),
+              const Text('今天的心情'),
+              TextField(
+                controller: _moodController,
+                decoration: const InputDecoration(
+                  border: OutlineInputBorder(),
+                  hintText: '例如：放鬆、熱血、壓力大',
+                ),
+              ),
+
+              const SizedBox(height: 16),
+              const Text('有什麼需求或偏好嗎？'),
+              TextField(
+                controller: _needController,
+                decoration: const InputDecoration(
+                  border: OutlineInputBorder(),
+                  hintText: '例如：想泡溫泉、不想曬太陽、不想人擠人',
+                ),
+              ),
+              
               const SizedBox(height: 30),
               Center(
                 child: ElevatedButton(

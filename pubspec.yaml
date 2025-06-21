@@ -92,6 +92,7 @@ flutter:
     - assets/data/country.csv
     - assets/data/Restaurant.csv
     - assets/data/Hotel.csv
+    - assets/data/ScenicSpot_tag.csv
     
     
     

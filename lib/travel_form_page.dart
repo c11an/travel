@@ -89,7 +89,7 @@ class _TravelFormPageState extends State<TravelFormPage> {
 
   Future<void> _loadSpots() async {
     try {
-      final fileName = selectedCategory == "景點" ? 'ScenicSpot.csv' 
+      final fileName = selectedCategory == "景點" ? 'ScenicSpot_tag.csv' 
                 : 'Restaurant.csv' ;
       final rawData = await rootBundle.loadString('assets/data/$fileName');
       final csvRows = const CsvToListConverter().convert(rawData);

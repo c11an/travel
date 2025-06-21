@@ -16,6 +16,9 @@ class TravelDayPage extends StatefulWidget {
   final DateTime endDate;
   final int budget;
   final String transport;
+  final String? mood;
+  final String? need;
+
   final List<List<Map<String, String>>>? initialSpots;
   final List<List<String>>? initialTransports;
   final bool readOnly;
@@ -30,6 +33,8 @@ class TravelDayPage extends StatefulWidget {
     this.initialSpots,
     this.initialTransports,
     this.readOnly = false,
+    this.mood,
+    this.need,
   });
 
   @override
@@ -319,6 +324,7 @@ class _TravelDayPageState extends State<TravelDayPage>
 
   @override
   Widget build(BuildContext context) {
+    print("🧠 mood: ${widget.mood}, 🎯 need: ${widget.need}");
     final tripDuration =
         '${DateFormat('yyyy/MM/dd').format(widget.startDate)} ~ ${DateFormat('yyyy/MM/dd').format(widget.endDate)}';
 
