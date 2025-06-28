@@ -11,7 +11,7 @@ class AIRecommendResultPage extends StatefulWidget {
   final double? budget;
   final String? transport;
   final List<String>? types;
-  final List<Map<String, String>> spots;
+  final String tripName;
   final DateTime? startDate;
   final DateTime? endDate;
   final String? gptRecommendation;
@@ -24,19 +24,19 @@ class AIRecommendResultPage extends StatefulWidget {
 
   const AIRecommendResultPage({
     super.key,
+    required this.tripName,
+    required this.allSpots,
     this.city,
     this.budget,
     this.transport,
     this.types,
-    required this.spots,
-    required this.allSpots, // ✅ 接收 allSpots
     this.startDate,
     this.endDate,
     this.mood,
     this.need,
     this.gptRecommendation,
-
   });
+
 
   @override
   State<AIRecommendResultPage> createState() => _AIRecommendResultPageState();
@@ -52,23 +52,23 @@ class _AIRecommendResultPageState extends State<AIRecommendResultPage> {
   void initState() {
     super.initState();
     print('🧠 mood: ${widget.mood}, 🎯 need: ${widget.need}');
-    _loadRecommendedSpots();
+    //_loadRecommendedSpots();
   }
 
-  void _loadRecommendedSpots() {
-    setState(() {
-      recommendedSpots = widget.spots.map((spot) {
-        return {
-          'name': spot['Name'] ?? '',
-          'type': spot['Category'] ?? '',
-          'location': spot['Region'] ?? '',
-          'imageUrl': spot['Picture1'] ?? '',
-          'rating': 4.5,
-          'description': spot['Description'] ?? '沒有描述',
-        };
-      }).toList();
-    });
-  }
+  //void _loadRecommendedSpots() {
+  //  setState(() {
+  //    recommendedSpots = widget.spots.map((spot) {
+  //      return {
+  //        'name': spot['Name'] ?? '',
+  //        'type': spot['Category'] ?? '',
+  //        'location': spot['Region'] ?? '',
+  //        'imageUrl': spot['Picture1'] ?? '',
+  //        'rating': 4.5,
+  //        'description': spot['Description'] ?? '沒有描述',
+  //      };
+  //    }).toList();
+  //  });
+  //}
 
   void _convertGptToTravelPage() async {
   try {
@@ -167,7 +167,7 @@ class _AIRecommendResultPageState extends State<AIRecommendResultPage> {
       context,
       MaterialPageRoute(
         builder: (_) => TravelDayPage(
-          tripName: 'GPT推薦行程',
+          tripName: widget.tripName,
           startDate: widget.startDate!,
           endDate: widget.startDate!.add(Duration(days: matchedSpots.length - 1)),
           budget: widget.budget?.toInt() ?? 0,
@@ -241,6 +241,7 @@ class _AIRecommendResultPageState extends State<AIRecommendResultPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // 📋 推薦條件簡述
+            Text('行程名稱：${widget.tripName}'),
             Text('出發地：${widget.city ?? "未指定"}'),
             if (widget.startDate != null && widget.endDate != null)
               Text(

@@ -4,6 +4,7 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:csv/csv.dart';
 import 'package:intl/intl.dart';
 import 'package:travel/openai_service.dart';
+import 'package:travel/travel_day_page.dart';
 
 class AIRecommendPage extends StatefulWidget {
   const AIRecommendPage({super.key});
@@ -19,7 +20,6 @@ class _AIRecommendPageState extends State<AIRecommendPage> {
   double budget = 5000;
   String transport = '不拘';
   List<String> selectedTypes = [];
-  String selectedCategory = "景點";
   List<Map<String, String>> spots = [];
   List<Map<String, String>> allSpots = []; // 🔧 全部資料
 
@@ -29,6 +29,8 @@ class _AIRecommendPageState extends State<AIRecommendPage> {
 
   final TextEditingController _moodController = TextEditingController();
   final TextEditingController _needController = TextEditingController();
+  final TextEditingController _tripNameController = TextEditingController();
+
 
 
   final List<String> cities = [
@@ -46,26 +48,38 @@ class _AIRecommendPageState extends State<AIRecommendPage> {
   }
 
   Future<void> _loadSpots() async {
-    final fileName = selectedCategory == "景點"
-        ? 'assets/data/ScenicSpot.csv'
-        : 'assets/data/Restaurant.csv';
+    final scenicRaw = await rootBundle.loadString('assets/data/ScenicSpot.csv');
+    final foodRaw = await rootBundle.loadString('assets/data/Restaurant.csv');
 
-    final rawData = await rootBundle.loadString(fileName);
-    final csvRows = const CsvToListConverter().convert(rawData);
-    final headers = csvRows.first.map((e) => e.toString()).toList();
+    final csvConverter = const CsvToListConverter();
 
-    final data = csvRows.skip(1).map((row) {
+    final scenicRows = csvConverter.convert(scenicRaw);
+    final foodRows = csvConverter.convert(foodRaw);
+
+    final headers = scenicRows.first.map((e) => e.toString()).toList();
+
+    final scenicData = scenicRows.skip(1).map((row) {
       return Map<String, String>.fromIterables(
         headers,
         row.map((e) => e.toString()),
-      );
+      )..['Type'] = '景點';
     }).toList();
 
+    final foodData = foodRows.skip(1).map((row) {
+      return Map<String, String>.fromIterables(
+        headers,
+        row.map((e) => e.toString()),
+      )..['Type'] = '美食';
+    }).toList();
+
+    final combined = [...scenicData, ...foodData];
+
     setState(() {
-      allSpots = data; // ✅ 保留完整資料
-      spots = data;    // ✅ 或者可以加條件篩選（像選縣市後 filter）
+      allSpots = combined;
+      spots = combined;
     });
   }
+
 
   void _startRecommendation() async {
     final openAIService = OpenAIService();
@@ -82,13 +96,14 @@ class _AIRecommendPageState extends State<AIRecommendPage> {
       isLoading = true;
     });
 
-    final filteredSpots = spots.where((spot) {
-      if (selectedCity != null && spot['Region'] != selectedCity) return false;
+    final filteredSpots = allSpots.where((spot) {
+      if (spot['Region'] != selectedCity) return false;
       if (selectedTypes.isNotEmpty) {
         return selectedTypes.any((type) => spot['Category']?.contains(type) ?? false);
       }
       return true;
     }).toList();
+
 
     if (filteredSpots.length < 5) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -98,18 +113,17 @@ class _AIRecommendPageState extends State<AIRecommendPage> {
 
     try {
       final gptResult = await openAIService
-      .getTravelRecommendation(
-        city: selectedCity!,
-        types: selectedTypes,
-        budget: budget,
-        transport: transport,
-        startDate: startDate,
-        endDate: endDate,
-        mood: _moodController.text.trim(),
-        need: _needController.text.trim(),
-        availableSpots: allSpots.where((spot) => spot['Region'] == selectedCity).toList(),
-      )
-
+          .getTravelRecommendation(
+            city: selectedCity!,
+            types: selectedTypes,
+            budget: budget,
+            transport: transport,
+            startDate: startDate,
+            endDate: endDate,
+            mood: _moodController.text.trim(),
+            need: _needController.text.trim(),
+            availableSpots: allSpots.where((spot) => spot['Region'] == selectedCity).toList(),
+          )
           .timeout(const Duration(seconds: 20), onTimeout: () {
         print("⚠️ GPT API 請求逾時");
         return "⚠️ ChatGPT 回應逾時，請稍後再試";
@@ -123,21 +137,25 @@ class _AIRecommendPageState extends State<AIRecommendPage> {
         recommendationResult = gptResult;
       });
 
+      // ✅ 將 GPT 回傳內容轉成 dailySpots 格式
+      final dailySpots = parseGptTextToDailySpots(
+        gptResult,
+        allSpots.where((s) => s['Region'] == selectedCity).toList(),
+      );
+
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => AIRecommendResultPage(
-            spots: filteredSpots,
-            allSpots: allSpots,
-            city: selectedCity,
+          builder: (_) => AIRecommendResultPage(
+            tripName: _tripNameController.text.trim(),
+            startDate: startDate ?? DateTime.now(),
+            endDate: endDate ?? DateTime.now(),
             budget: budget,
             transport: transport,
-            types: selectedTypes,
-            startDate: startDate,
-            endDate: endDate,
-            gptRecommendation: recommendationResult,
-            mood: _moodController.text.trim(),  // ✅ 傳入 mood
-            need: _needController.text.trim(),  // ✅ 傳入 need
+            gptRecommendation: gptResult,
+            allSpots: allSpots.where((s) => s['Region'] == selectedCity).toList(),
+            mood: _moodController.text.trim(),
+            need: _needController.text.trim(),
           ),
         ),
       );
@@ -159,8 +177,8 @@ class _AIRecommendPageState extends State<AIRecommendPage> {
             ),
             TextButton(
               onPressed: () {
-                Navigator.pop(context); // 關閉 dialog
-                _startRecommendation(); // 🔁 重新呼叫
+                Navigator.pop(context);
+                _startRecommendation();
               },
               child: const Text('重新推薦'),
             ),
@@ -169,6 +187,7 @@ class _AIRecommendPageState extends State<AIRecommendPage> {
       );
     }
   }
+
 
 
   Future<void> _selectDate(BuildContext context, bool isStart) async {
@@ -202,21 +221,15 @@ class _AIRecommendPageState extends State<AIRecommendPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('選擇推薦類別'),
-              DropdownButton<String>(
-                value: selectedCategory,
-                items: const [
-                  DropdownMenuItem(value: "景點", child: Text("景點")),
-                  DropdownMenuItem(value: "美食", child: Text("美食")),
-                ],
-                onChanged: (value) {
-                  setState(() {
-                    selectedCategory = value!;
-                    _loadSpots();
-                  });
-                },
+              const Text('行程名稱'),
+              TextField(
+                controller: _tripNameController,
+                decoration: const InputDecoration(
+                  border: OutlineInputBorder(),
+                  hintText: '輸入這趟旅程的名稱，例如：暑假小旅行',
+                ),
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: 16),
               const Text('出發地（縣市）'),
               DropdownButton<String>(
                 value: selectedCity,
@@ -327,6 +340,61 @@ class _AIRecommendPageState extends State<AIRecommendPage> {
       ),
     );
   }
+
+  List<List<Map<String, String>>> parseGptTextToDailySpots(String gptText, List<Map<String, String>> allSpots) {
+    final lines = gptText.split('\n');
+    List<List<Map<String, String>>> result = [];
+    List<Map<String, String>> currentDaySpots = [];
+
+    final dayRegex = RegExp(r'^Day\s*\d+');
+    final timeRegex = RegExp(r'^(\d{1,2}:\d{2})\s*~\s*(\d{1,2}:\d{2})$');
+
+    String? currentTimeStart;
+
+    for (final line in lines) {
+      final trimmed = line.trim();
+
+      if (dayRegex.hasMatch(trimmed)) {
+        if (currentDaySpots.isNotEmpty) {
+          result.add(currentDaySpots);
+          currentDaySpots = [];
+        }
+      } else if (timeRegex.hasMatch(trimmed)) {
+        currentTimeStart = trimmed.split('~').first.trim();
+      } else if (trimmed.startsWith('景點：')) {
+        final name = trimmed.replaceFirst('景點：', '').trim();
+        final spot = allSpots.firstWhere(
+          (s) => s['Name'] == name,
+          orElse: () => {
+            'Name': name,
+            'Add': '',
+            'Px': '0',
+            'Py': '0',
+            'Description': '',
+          },
+        );
+
+        final hourStr = currentTimeStart?.split(':').first.padLeft(2, '0') ?? '08';
+
+        currentDaySpots.add({
+          'Name': spot['Name'] ?? '',
+          'Add': spot['Add'] ?? '',
+          'Px': spot['Px'] ?? '0',
+          'Py': spot['Py'] ?? '0',
+          'Description': spot['Description'] ?? '',
+          'Time': hourStr,
+          'Duration': '2', // 預設兩小時，如需更精細可以擴充時間解析
+        });
+      }
+    }
+
+    if (currentDaySpots.isNotEmpty) {
+      result.add(currentDaySpots);
+    }
+
+    return result;
+  }
+
 }
 
 

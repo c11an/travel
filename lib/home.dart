@@ -749,6 +749,7 @@ class _HomePageState extends State<HomePage> {
           },
           child: pages[_selectedIndex],
         ),
+        //------------底部導覽列---------------//
         bottomNavigationBar: BottomNavigationBar(
           currentIndex: _selectedIndex,
           selectedItemColor: Colors.blueAccent,

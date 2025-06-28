@@ -95,42 +95,74 @@ class OpenAIService {
         ? "從 ${DateFormat('yyyy/MM/dd').format(startDate)} 到 ${DateFormat('yyyy/MM/dd').format(endDate)}"
         : "無指定日期";
 
+    final firstDayStr = startDate != null
+        ? DateFormat('yyyy/MM/dd').format(startDate)
+        : "2025/07/01"; // 預設日期
+
     final typesList = types.isNotEmpty ? types.join(", ") : "不拘";
 
-    final spotNames = availableSpots
-        .map((s) => s['Name'])
-        .whereType<String>()
+    final scenicSpots = availableSpots
+        .where((s) => s['Type'] == '景點')
+        .map((s) =>
+            "【${s['Name']}】（${s['Category'] ?? '未知類型'}，${s['Region'] ?? '未知地區'}）")
         .where((n) => n.trim().isNotEmpty)
         .toSet()
         .take(100)
         .toList();
 
-    final joinedSpots = spotNames.join("、");
+    final foodSpots = availableSpots
+        .where((s) => s['Type'] == '美食')
+        .map((s) =>
+            "【${s['Name']}】（美食，${s['Region'] ?? '未知地區'}）")
+        .where((n) => n.trim().isNotEmpty)
+        .toSet()
+        .take(50)
+        .toList();
+
+    final joinedSpots = [...scenicSpots, ...foodSpots].join("、");
 
     return """
-  我正在規劃一趟台灣的旅遊行程，地點是 $city。我的預算是每人 NT\$${budget.toInt()}，旅遊日期為：$dateInfo。
-  我希望的交通方式是：$transport。
-  我偏好的行程類型有：$typesList。
+  我正在規劃一趟台灣的旅遊行程，地點為：$city，旅遊日期：$dateInfo。
+  每日預算為每人 NT\$${budget.toInt()} 元，使用交通方式：$transport。
+  我偏好的旅遊類型有：$typesList。
 
-  目前我的心情是：「$mood」，我特別希望這次旅程能夠：「$need」。
+  目前心情：「$mood」，這次旅行我希望：「$need」。
 
-  ⚠️ 請務必根據以下偏好做出安排：
-  - 若提到「不想曬太陽」，請避免安排戶外、炎熱、缺乏遮蔽的景點（如古道、登山、牧場、沙灘等），改安排有遮蔽、室內、或傍晚的行程。
-  - 若提到「不想人擠人」，請避免安排熱門或擁擠的地點，改安排冷門、寧靜、有座位的空間。
-  - 若提到「想放鬆」或「壓力大」，請安排節奏較慢的景點，例如美術館、書店、溫泉、咖啡廳、森林步道等。
+  ⚠️ 請特別注意以下需求：
+  - 若提到「不想曬太陽」，請避免安排炎熱或缺乏遮蔭的戶外景點。
+  - 若提到「不想人擠人」，請避開熱門地點，改安排冷門、安靜的地方。
+  - 若提到「想放鬆」或「壓力大」，請安排節奏緩慢、寧靜的景點。
 
-  請根據以下可用的景點清單規劃，**只能選用下列景點名稱**：$joinedSpots。
+  ✅ 以下是可選地點（**只能從這些景點與美食中安排**）：
+  $joinedSpots
 
-  請幫我規劃三日的旅遊行程，格式如下：
-  Day 1：
-    上午：地點名稱 - 簡短說明
-    下午：地點名稱 - 簡短說明
-    晚上：地點名稱 - 簡短說明
+  📌 安排行程時，請**每天規劃從上午 9:00 到晚上 7:00 的完整旅遊行程**，包含：
+  - 景點參訪與活動
+  - 餐食安排（建議每日安排中餐與晚餐各一間「美食」地點）
+  - 交通方式（捷運、公車、走路等）
+  - 景點順序要合理，避免跳點與長距離來回移動
 
-  Day 2：
+  📋 請使用以下格式回覆，**不要加任何說明文字**：
+
+  Day 1（$firstDayStr）：
+  09:00 ~ 10:00  
+  景點：xx公園  
+  活動：散步、欣賞風景  
+  交通：捷運到達
+
+  10:00 ~ 12:00  
+  景點：某某老街  
+  活動：逛街購物  
+  交通：步行
+
+  12:00 ~ 13:00  
+  景點：老王牛肉麵（美食）  
+  活動：午餐  
+  交通：步行
+
   ...
 
-  請注意行程動線的合理性與預算控制。不要有廢話解釋，只回傳行程即可。
+  請根據日期逐日列出完整時段行程，確保內容合理、有趣且符合需求。
   """;
   }
 
