@@ -4,7 +4,6 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:csv/csv.dart';
 import 'package:intl/intl.dart';
 import 'package:travel/openai_service.dart';
-import 'package:travel/travel_day_page.dart';
 
 class AIRecommendPage extends StatefulWidget {
   const AIRecommendPage({super.key});

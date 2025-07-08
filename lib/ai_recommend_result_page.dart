@@ -71,141 +71,167 @@ class _AIRecommendResultPageState extends State<AIRecommendResultPage> {
   //}
 
   void _convertGptToTravelPage() async {
-  try {
-    final gptText = widget.gptRecommendation ?? '';
+    final Map<int, List<Map<String, String>>> dayMap = {};
+    List<List<Map<String, String>>> matchedSpots = []; // 👈 提前宣告
 
-    if (widget.startDate == null || widget.endDate == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('⚠️ 未設定旅遊日期，無法建立日行程')),
-      );
-      return;
-    }
+    try {
+      final gptText = widget.gptRecommendation ?? '';
 
-    if (gptText.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('⚠️ GPT 回傳內容為空')),
-      );
-      return;
-    }
-
-    // 🧠 解析 GPT 內容
-    final Map<int, List<String>> dayMap = {};
-    final lines = gptText.split('\n');
-    int currentDay = -1;
-
-    for (var line in lines) {
-      line = line.trim();
-      if (line.isEmpty) continue;
-
-      if (line.startsWith('Day')) {
-        final match = RegExp(r'Day\s*(\d+)').firstMatch(line);
-        if (match != null) {
-          currentDay = int.parse(match.group(1)!) - 1;
-          dayMap[currentDay] = [];
-        }
-      } else if (line.contains('：') && currentDay >= 0) {
-        final parts = line.split('：');
-        if (parts.length > 1) {
-          final content = parts.sublist(1).join('：').trim();
-          final names = content
-              .split(RegExp(r'[、,，。]'))
-              .map((s) => s.trim())
-              .where((s) => s.isNotEmpty)
-              .toList();
-          dayMap[currentDay]?.addAll(names);
-        }
-      }
-    }
-
-    print('🔎 Day Map keys: ${dayMap.keys}');
-
-    if (dayMap.isEmpty) {
-      throw Exception('GPT 行程內容無法解析成天數結構');
-    }
-
-    // 📅 計算行程天數
-    final maxDayIndex = dayMap.keys.reduce(max);
-    final tripDays = max(widget.endDate!.difference(widget.startDate!).inDays + 1, maxDayIndex + 1);
-    final matchedSpots = List.generate(tripDays, (_) => <Map<String, String>>[]);
-
-    // 📍 景點比對
-    for (final entry in dayMap.entries) {
-      final int dayIndex = entry.key;
-
-      if (dayIndex >= matchedSpots.length) {
-        print('⚠️ 略過 Day $dayIndex，超出 tripDays 範圍 $tripDays');
-        continue;
+      if (widget.startDate == null || widget.endDate == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('⚠️ 未設定旅遊日期，無法建立日行程')),
+        );
+        return;
       }
 
-      for (final gptName in entry.value) {
-        Map<String, String>? bestSpot;
+      if (gptText.trim().isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('⚠️ GPT 回傳內容為空')),
+        );
+        return;
+      }
 
-        for (final spot in widget.allSpots) {
-          final spotName = spot['Name'] ?? '';
-          if (spotName.contains(gptName) || gptName.contains(spotName)) {
-            bestSpot = spot;
-            break;
+      // 🧠 GPT 內容解析：Day、時間、景點
+      final lines = gptText.split('\n');
+      int currentDay = -1;
+      String? currentTime;
+
+      for (var line in lines) {
+        line = line.trim();
+        if (line.isEmpty) continue;
+
+        if (line.startsWith('Day')) {
+          final match = RegExp(r'Day\s*(\d+)').firstMatch(line);
+          if (match != null) {
+            currentDay = int.parse(match.group(1)!) - 1;
+            dayMap[currentDay] = [];
+          }
+        } else if (RegExp(r'^\d{2}:\d{2}\s*~\s*\d{2}:\d{2}$').hasMatch(line)) {
+          currentTime = line;
+        } else if (line.startsWith('景點：') && currentDay >= 0 && currentTime != null) {
+          final name = line.replaceFirst('景點：', '').trim();
+          dayMap[currentDay]?.add({
+            'time': currentTime,
+            'name': name,
+          });
+        }
+      }
+
+      if (dayMap.isEmpty) {
+        throw Exception('GPT 行程內容無法解析成天數結構');
+      }
+
+      // 📅 計算行程天數
+      final maxDayIndex = dayMap.keys.reduce(max);
+      final tripDays = max(widget.endDate!.difference(widget.startDate!).inDays + 1, maxDayIndex + 1);
+      matchedSpots = List.generate(tripDays, (_) => <Map<String, String>>[]);
+
+      // 📍 景點比對
+      for (final entry in dayMap.entries) {
+        final int dayIndex = entry.key;
+
+        for (final item in entry.value) {
+          final gptName = item['name']!;
+          final timeSlot = item['time']!;
+          Map<String, String>? bestSpot;
+
+          for (final spot in widget.allSpots) {
+            final spotName = spot['Name'] ?? '';
+            if (spotName.contains(gptName) || gptName.contains(spotName)) {
+              bestSpot = {
+                ...spot,
+                'TimeSlot': timeSlot, // ⏰加入時間
+              };
+              break;
+            }
+          }
+
+          if (bestSpot != null) {
+            // ⏰ 將 TimeSlot 拆解為 Time 與 Duration
+            final parts = timeSlot.split('~');
+            if (parts.length == 2) {
+              final start = parts[0].trim();
+              final end = parts[1].trim();
+
+              final startHour = int.tryParse(start.split(':').first);
+              final endHour = int.tryParse(end.split(':').first);
+
+              if (startHour != null && endHour != null) {
+                bestSpot['Time'] = startHour.toString().padLeft(2, '0');
+                bestSpot['Duration'] = (endHour - startHour).toString();
+                print("Day $dayIndex >> ${bestSpot['Name']} at ${bestSpot['Time']} for ${bestSpot['Duration']}h");
+              }
+            }
+
+            matchedSpots[dayIndex].add(bestSpot);
+          } else {
+            print('❓ 找不到對應景點：$gptName');
           }
         }
+      }
 
-        if (bestSpot != null) {
-          matchedSpots[dayIndex].add(bestSpot);
-        } else {
-          print('❓ 找不到對應景點：$gptName');
+      // ✅ 排序景點（根據時間）
+      for (var day in matchedSpots) {
+        day.sort((a, b) => (a['TimeSlot'] ?? '').compareTo(b['TimeSlot'] ?? ''));
+      }
+
+      // 🔍 Debug 日誌
+      print("🧩 GPT 解析出的 DayMap：$dayMap");
+      print("📊 allSpots 數量：${widget.allSpots.length}");
+      for (final entry in dayMap.entries) {
+        print("📆 Day ${entry.key + 1}");
+        for (final item in entry.value) {
+          final gptName = item['name'];
+          print("🔍 GPT 景點名稱：$gptName");
         }
       }
-    }
+      print("🔥 matchedSpots：${jsonEncode(matchedSpots)}");
 
-    // 🧾 輸出結果
-    print('✅ 匹配完成，每日景點如下：');
-    for (int i = 0; i < matchedSpots.length; i++) {
-      print('Day ${i + 1}: ${matchedSpots[i].map((s) => s['Name']).join(", ")}');
-    }
-
-    // 🚀 跳轉並儲存行程
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => TravelDayPage(
-          tripName: widget.tripName,
-          startDate: widget.startDate!,
-          endDate: widget.startDate!.add(Duration(days: matchedSpots.length - 1)),
-          budget: widget.budget?.toInt() ?? 0,
-          transport: widget.transport ?? '不限',
-          initialSpots: matchedSpots,
-          readOnly: false,
-          mood: widget.mood,  // 加上這行
-          need: widget.need,  // 加上這行
+      // 🚀 跳轉頁面
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => TravelDayPage(
+            tripName: widget.tripName,
+            startDate: widget.startDate!,
+            endDate: widget.startDate!.add(Duration(days: matchedSpots.length - 1)),
+            budget: widget.budget?.toInt() ?? 0,
+            transport: widget.transport ?? '不限',
+            initialSpots: matchedSpots,
+            readOnly: false,
+            mood: widget.mood,
+            need: widget.need,
+          ),
         ),
+      ).then((result) async {
+        if (result != null && result is Map<String, dynamic>) {
+          final prefs = await SharedPreferences.getInstance();
+          final tripList = prefs.getStringList('trip_list') ?? [];
+          tripList.add(jsonEncode(result));
+          await prefs.setStringList('trip_list', tripList);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('✅ GPT 行程已儲存至行程規劃')),
+          );
+        }
+      });
+    } catch (e, stackTrace) {
+      print('❌ 解析或建立行程失敗：$e');
+      print(stackTrace);
 
-      ),
-    ).then((result) async {
-      if (result != null && result is Map<String, dynamic>) {
-        final prefs = await SharedPreferences.getInstance();
-        final tripList = prefs.getStringList('trip_list') ?? [];
-        tripList.add(jsonEncode(result));
-        await prefs.setStringList('trip_list', tripList);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('✅ GPT 行程已儲存至行程規劃')),
-        );
-      }
-    });
-  } catch (e, stackTrace) {
-    print('❌ 解析或建立行程失敗：$e');
-    print(stackTrace);
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('⚠️ 發生錯誤'),
-        content: Text('解析 GPT 行程或跳轉頁面時發生錯誤：\n$e'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('我知道了')),
-        ],
-      ),
-    );
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('⚠️ 發生錯誤'),
+          content: Text('解析 GPT 行程或跳轉頁面時發生錯誤：\n$e'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('我知道了')),
+          ],
+        ),
+      );
+    }
   }
-}
+
+
 
 
 

@@ -76,12 +76,56 @@ class _TravelDayPageState extends State<TravelDayPage>
       (index) => index < incomingTransports.length ? incomingTransports[index] : [],
     );
 
-    // ✅ 這樣才會在資料載入後計算正確的交通方式與刷新畫面
+    // ✅ 加上這段：補上 GPT 景點沒有 Time/Duration 的問題
+    for (int dayIndex = 0; dayIndex < dailySpots.length; dayIndex++) {
+      for (var spot in dailySpots[dayIndex]) {
+        if (!spot.containsKey('Time') && spot.containsKey('TimeSlot')) {
+          final timeSlot = spot['TimeSlot']!;
+          final parts = timeSlot.split('~');
+          if (parts.length == 2) {
+            final start = parts[0].trim();
+            final end = parts[1].trim();
+
+            final startHour = int.tryParse(start.split(':').first);
+            final endHour = int.tryParse(end.split(':').first);
+
+            if (startHour != null && endHour != null) {
+              spot['Time'] = startHour.toString().padLeft(2, '0');
+              spot['Duration'] = (endHour - startHour).toString();
+            }
+          }
+        }
+
+        // 🧠 額外：如果還是沒有 Time，就試著從 Raw 資料解析
+        if (!spot.containsKey('Time')) {
+          final time = _extractTimeFromText(spot['Raw'] ?? '');
+          if (time != null) spot['Time'] = time;
+        }
+
+        if (!spot.containsKey('Duration')) {
+          spot['Duration'] = '1';
+        }
+      }
+    }
+
     _loadNotesFromStorage().then((_) {
       _generateTransports();
       setState(() {});
     });
   }
+
+  String? _extractTimeFromText(String text) {
+    final match = RegExp(r'^(\d{1,2}):\d{2}').firstMatch(text);
+    if (match != null) {
+      final hour = int.tryParse(match.group(1) ?? '');
+      if (hour != null) {
+        return hour.toString().padLeft(2, '0');
+      }
+    }
+    return null;
+  }
+
+
 
 
 
@@ -558,8 +602,6 @@ class _TravelDayPageState extends State<TravelDayPage>
             ),
           ),
         ),
-
-
     );
   }
 
