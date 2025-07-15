@@ -55,18 +55,19 @@ class _AIRecommendPageState extends State<AIRecommendPage> {
     final scenicRows = csvConverter.convert(scenicRaw);
     final foodRows = csvConverter.convert(foodRaw);
 
-    final headers = scenicRows.first.map((e) => e.toString()).toList();
+    final scenicHeader = scenicRows.first.map((e) => e.toString()).toList();
+    final foodHeader = foodRows.first.map((e) => e.toString()).toList();
 
     final scenicData = scenicRows.skip(1).map((row) {
       return Map<String, String>.fromIterables(
-        headers,
+        scenicHeader,
         row.map((e) => e.toString()),
       )..['Type'] = '景點';
     }).toList();
 
     final foodData = foodRows.skip(1).map((row) {
       return Map<String, String>.fromIterables(
-        headers,
+        foodHeader,
         row.map((e) => e.toString()),
       )..['Type'] = '美食';
     }).toList();
@@ -77,7 +78,10 @@ class _AIRecommendPageState extends State<AIRecommendPage> {
       allSpots = combined;
       spots = combined;
     });
+
+    print("✅ 讀取景點成功，共 ${combined.length} 筆");
   }
+
 
 
   void _startRecommendation() async {

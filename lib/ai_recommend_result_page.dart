@@ -71,6 +71,7 @@ class _AIRecommendResultPageState extends State<AIRecommendResultPage> {
   //}
 
   void _convertGptToTravelPage() async {
+    print("📊 allSpots.first 內容: ${widget.allSpots.isNotEmpty ? widget.allSpots.first : '空的'}");
     final Map<int, List<Map<String, String>>> dayMap = {};
     List<List<Map<String, String>>> matchedSpots = []; // 👈 提前宣告
 
@@ -137,13 +138,15 @@ class _AIRecommendResultPageState extends State<AIRecommendResultPage> {
 
           for (final spot in widget.allSpots) {
             final spotName = spot['Name'] ?? '';
-            if (spotName.contains(gptName) || gptName.contains(spotName)) {
-              bestSpot = {
-                ...spot,
-                'TimeSlot': timeSlot, // ⏰加入時間
-              };
-              break;
-            }
+            final normalize = (String s) => s.replaceAll(' ', '').toLowerCase();
+            if (normalize(spotName).contains(normalize(gptName)) ||
+                normalize(gptName).contains(normalize(spotName))) {
+                bestSpot = {
+                  ...spot,
+                  'TimeSlot': timeSlot, // ⏰加入時間
+                };
+                break;
+              }
           }
 
           if (bestSpot != null) {
@@ -187,6 +190,13 @@ class _AIRecommendResultPageState extends State<AIRecommendResultPage> {
       }
       print("🔥 matchedSpots：${jsonEncode(matchedSpots)}");
 
+      print("🧭 allSpots 內容前 5 筆：");
+      for (int i = 0; i < min(widget.allSpots.length, 5); i++) {
+        final spot = widget.allSpots[i];
+        print("  🔹 ${spot['Name']} / ${spot['Type']}");
+      }
+
+
       // 🚀 跳轉頁面
       Navigator.push(
         context,
@@ -229,6 +239,11 @@ class _AIRecommendResultPageState extends State<AIRecommendResultPage> {
         ),
       );
     }
+    print("✅ matchedSpots 最終輸出：");
+    for (int i = 0; i < matchedSpots.length; i++) {
+      print("Day ${i + 1}: ${matchedSpots[i].map((s) => s['Name']).join(', ')}");
+    }
+
   }
 
 

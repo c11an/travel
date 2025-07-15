@@ -112,6 +112,15 @@ class _TravelDayPageState extends State<TravelDayPage>
       _generateTransports();
       setState(() {});
     });
+
+    print("🧳 TravelDayPage 收到 initialSpots: ${widget.initialSpots?.length}");
+    for (int i = 0; i < (widget.initialSpots?.length ?? 0); i++) {
+      print("📆 Day ${i + 1} 景點數量: ${widget.initialSpots![i].length}");
+      for (final spot in widget.initialSpots![i]) {
+        print("  🔸 ${spot['Name']} (${spot['TimeSlot']})");
+      }
+    }
+
   }
 
   String? _extractTimeFromText(String text) {
@@ -385,14 +394,15 @@ class _TravelDayPageState extends State<TravelDayPage>
           },
           tabs: List.generate(dayCount, (i) => Tab(text: 'Day ${i + 1}')),
         ),
-        actions: [
-          if (widget.readOnly)
-            IconButton(
-              onPressed: () => _showNotes(viewOnly: true, dayIndex: _currentDayIndex),
-              icon: const Icon(Icons.notes),
-              tooltip: "查看心得",
-            ),
-        ],
+//         actions: [
+//           if (widget.readOnly)
+//             IconButton(
+//               onPressed: () => _showNotesAllDays(viewOnly: true)
+// ,
+//               icon: const Icon(Icons.notes),
+//               tooltip: "查看心得",
+//             ),
+//         ],
       ),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -452,7 +462,7 @@ class _TravelDayPageState extends State<TravelDayPage>
                           
                           if (widget.readOnly)
                             IconButton(
-                              onPressed: () => _showNotes(viewOnly: true, dayIndex: _currentDayIndex),
+                              onPressed: () => _showNotesAllDays(viewOnly: true),
                               icon: const Icon(Icons.notes),
                               tooltip: "查看心得",
                             ),
@@ -610,25 +620,25 @@ class _TravelDayPageState extends State<TravelDayPage>
 
 
   /// 跳轉到撰寫或查看心得頁面
-  void _showNotes({required bool viewOnly, required int dayIndex}) {
+  void _showNotesAllDays({required bool viewOnly}) {
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => TravelNotePage(
-          dailySpots: dailySpots[dayIndex],
-          dayIndex: dayIndex,
+          allDailySpots: dailySpots,
           readOnly: viewOnly,
         ),
       ),
     ).then((updatedSpots) {
-      if (updatedSpots != null) {
+      if (updatedSpots != null && mounted) {
         setState(() {
-          dailySpots[dayIndex] = updatedSpots;
-          _saveNotesToStorage(); // ✅ 儲存心得
+          dailySpots = List<List<Map<String, String>>>.from(updatedSpots);
+          _saveNotesToStorage();
         });
       }
     });
   }
+
 
   // ✅ 新增儲存心得到 SharedPreferences
   Future<void> _saveNotesToStorage() async {

@@ -10,7 +10,6 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:csv/csv.dart';
 import 'dart:convert';
-import 'package:http/http.dart' as http;
 
 //-----抓取近期活動資料-----//
 // Future<List<Map<String, String>>> fetchRecentEvents() async {

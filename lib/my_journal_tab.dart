@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:travel/travel_note_page.dart';
 import 'dart:convert';
 import 'travel_day_page.dart'; // 請確認有引入
 
@@ -33,39 +34,34 @@ class _MyJournalTabState extends State<MyJournalTab> {
     await prefs.setStringList('trip_list', tripListString);
   }
 
-  void _editNoteDialog(int index) {
+  void _openNotePage(int index) async {
     final trip = trips[index];
-    final TextEditingController noteController =
-        TextEditingController(text: trip["note"] ?? "");
+    final List<List<Map<String, String>>> dailySpots =
+        (trip['daily_spots'] as List)
+            .map<List<Map<String, String>>>((day) =>
+                (day as List).map<Map<String, String>>((s) => Map<String, String>.from(s)).toList())
+            .toList();
 
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text("撰寫心得"),
-        content: TextField(
-          controller: noteController,
-          maxLines: 4,
-          decoration: const InputDecoration(hintText: "輸入旅遊心得..."),
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => TravelNotePage(
+          allDailySpots: dailySpots,
+          readOnly: false,
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("取消"),
-          ),
-          TextButton(
-            onPressed: () {
-              setState(() {
-                trips[index]["note"] = noteController.text;
-              });
-              _saveTripsToStorage();
-              Navigator.pop(context);
-            },
-            child: const Text("儲存"),
-          ),
-        ],
       ),
     );
+
+    if (result != null && result is List<List<Map<String, String>>>) {
+      setState(() {
+        trips[index]['daily_spots'] = result;
+      });
+      _saveTripsToStorage();
+    }
   }
+
+
+
 
   Future<void> _uploadToCommunity(Map<String, dynamic> trip) async {
     final prefs = await SharedPreferences.getInstance();
@@ -145,10 +141,11 @@ class _MyJournalTabState extends State<MyJournalTab> {
                   Row(
                     children: [
                       ElevatedButton.icon(
-                        onPressed: () => _editNoteDialog(index),
+                        onPressed: () => _openNotePage(index),
                         icon: const Icon(Icons.edit_note),
                         label: const Text("撰寫心得"),
                       ),
+
                       const SizedBox(width: 10),
                       ElevatedButton.icon(
                         onPressed: () => _uploadToCommunity(trip),
