@@ -137,7 +137,7 @@ class _SettingPageState extends State<SettingPage> {
                   Navigator.pushAndRemoveUntil(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => const LoginPage(),
+                      builder: (_) => const NicknamePage(),
                       settings: const RouteSettings(arguments: 'logged_out'),
                     ),
                     (route) => false,

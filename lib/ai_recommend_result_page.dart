@@ -138,7 +138,7 @@ class _AIRecommendResultPageState extends State<AIRecommendResultPage> {
 
           for (final spot in widget.allSpots) {
             final spotName = spot['Name'] ?? '';
-            final normalize = (String s) => s.replaceAll(' ', '').toLowerCase();
+            normalize(String s) => s.replaceAll(' ', '').toLowerCase();
             if (normalize(spotName).contains(normalize(gptName)) ||
                 normalize(gptName).contains(normalize(spotName))) {
                 bestSpot = {

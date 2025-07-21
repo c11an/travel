@@ -1,4 +1,5 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -89,38 +90,35 @@ class _TravelFormPageState extends State<TravelFormPage> {
 
   Future<void> _loadSpots() async {
     try {
-      final fileName = selectedCategory == "景點" ? 'ScenicSpot_tag.csv' 
-                : 'Restaurant.csv' ;
+      final fileName = selectedCategory == "景點" ? 'ScenicSpot_tag.csv' : 'Restaurant.csv';
       final rawData = await rootBundle.loadString('assets/data/$fileName');
-      final csvRows = const CsvToListConverter().convert(rawData);
-      final headers = csvRows.first.map((e) => e.toString()).toList();
-      
-      // 清除之前的資料
-      allSpots.clear();
-      filteredSpots.clear();
 
-      // 讀取資料
-      final data = csvRows.skip(1).map((row) {
-        return Map<String, String>.fromIterables(
-          headers,
-          row.map((e) => e.toString()),
-        );
-      }).toList();
+      final data = await compute(parseCsvData, rawData);
 
       setState(() {
         allSpots = data;
         filteredSpots = data;
       });
 
-      // ✅ 重新載入縣市資料（這裡應該放在 setState 外）
-      _loadCountryData();
+      _loadCountryData(); // 放在 setState 外
     } catch (e) {
-      print('❌ 無法載入資料檔案：$e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('❌ 無法載入資料，請確認檔案存在')),
-      );
+      print('❌ 載入錯誤: $e');
     }
   }
+
+  List<Map<String, String>> parseCsvData(String rawData) {
+    final rows = const CsvToListConverter().convert(rawData);
+    final headers = rows.first.map((e) => e.toString()).toList();
+    final data = rows.skip(1).map((row) {
+      return Map<String, String>.fromIterables(
+        headers,
+        row.map((e) => e.toString()),
+      );
+    }).toList();
+    return data;
+  }
+
+
 
 
   Future<void> _loadCountryData() async {
