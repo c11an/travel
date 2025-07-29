@@ -81,7 +81,6 @@ class _TravelInputPageState extends State<TravelInputPage> with TickerProviderSt
       setState(() {
         trips[index] = result;
       });
-      _saveTripsToStorage();
       _loadFavorites();
     }
   }
@@ -148,7 +147,7 @@ class _TravelInputPageState extends State<TravelInputPage> with TickerProviderSt
       setState(() {
         trips.add(tripResult);
       });
-      _saveTripsToStorage();
+      //_saveTripsToStorage();
     }
   }
 
