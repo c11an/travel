@@ -53,7 +53,6 @@ class _TravelFormPageState extends State<TravelFormPage> {
   void initState() {
     super.initState();
     _loadSpots();
-    _loadCountryData();
     _getUserLocation();
     _loadFavorites();
     _loadCustomMarkers();
@@ -93,14 +92,15 @@ class _TravelFormPageState extends State<TravelFormPage> {
       final fileName = selectedCategory == "景點" ? 'ScenicSpot_tag.csv' : 'Restaurant.csv';
       final rawData = await rootBundle.loadString('assets/data/$fileName');
 
-      final data = await compute(parseCsvData, rawData);
+      // ✅ 使用 compute 處理 CSV 並去除 BOM
+      final data = await compute(_parseCsvDataWithBomFix, rawData);
 
       setState(() {
         allSpots = data;
         filteredSpots = data;
       });
 
-      _loadCountryData(); // 放在 setState 外
+      await _loadCountryData(); // ✅ 確保 Spot 有了才載入縣市鄉鎮
     } catch (e) {
       print('❌ 載入錯誤: $e');
     }
@@ -117,9 +117,6 @@ class _TravelFormPageState extends State<TravelFormPage> {
     }).toList();
     return data;
   }
-
-
-
 
   Future<void> _loadCountryData() async {
     // 直接從 allSpots 載入 Region 和 Town
@@ -163,6 +160,8 @@ class _TravelFormPageState extends State<TravelFormPage> {
       selectedCity = null; // ✅ 重置選擇
       selectedTown = null;
     });
+
+    print("📍 cityTownMap loaded: ${cityTownMap.keys}");
   }
 
   void _filterByCityTown() {
@@ -659,3 +658,20 @@ Widget legendItem(Color color, String label) {
 
 
 }
+
+List<Map<String, String>> _parseCsvDataWithBomFix(String rawCsv) {
+    final csvList = const CsvToListConverter().convert(rawCsv, eol: '\n');
+
+    // 處理欄位名稱去掉 \ufeff（BOM）
+    final header = csvList[0]
+        .map((e) => e.toString().replaceAll('\ufeff', '').trim())
+        .toList();
+
+    return csvList.sublist(1).map((row) {
+      final map = <String, String>{};
+      for (int i = 0; i < header.length; i++) {
+        map[header[i]] = row[i].toString();
+      }
+      return map;
+    }).toList();
+  }
