@@ -482,8 +482,8 @@ Widget build(BuildContext context) {
                             setState(() {
                               selectedCity = city;
                               selectedTown = null;
-                              filteredSpots = [];
                             });
+                            _filterByCityTown(); // 🔥 加上這行觸發篩選
                           },
                         ),
                       ),

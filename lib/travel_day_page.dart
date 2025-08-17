@@ -19,11 +19,12 @@ class TravelDayPage extends StatefulWidget {
   final String? mood;
   final String? need;
 
+  final ScrollController _scrollController = ScrollController();
   final List<List<Map<String, String>>>? initialSpots;
   final List<List<String>>? initialTransports;
   final bool readOnly;
 
-  const TravelDayPage({
+  TravelDayPage({
     super.key,
     required this.tripName,
     required this.startDate,
@@ -47,18 +48,20 @@ class _TravelDayPageState extends State<TravelDayPage>
   late int dayCount;
   late List<List<Map<String, String>>> dailySpots;
   late List<List<String>> dailyTransports;
+  late List<ScrollController> _scrollControllers;
   //static const double hourBlockHeight = 100.0;
   static const hourBlockHeight = 100.0;
   static const distanceBlockHeight = 30.0;
   static const blockHeight = hourBlockHeight + distanceBlockHeight;
-
-
+  //final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
+
     dayCount = widget.endDate.difference(widget.startDate).inDays + 1;
     _tabController = TabController(length: dayCount, vsync: this);
+    _scrollControllers = List.generate(dayCount, (_) => ScrollController());
 
     final incomingSpots = widget.initialSpots ?? [];
     dailySpots = List.generate(
@@ -76,7 +79,7 @@ class _TravelDayPageState extends State<TravelDayPage>
       (index) => index < incomingTransports.length ? incomingTransports[index] : [],
     );
 
-    // ✅ 加上這段：補上 GPT 景點沒有 Time/Duration 的問題
+    // ✅ 補上 GPT 景點沒有 Time/Duration 的處理
     for (int dayIndex = 0; dayIndex < dailySpots.length; dayIndex++) {
       for (var spot in dailySpots[dayIndex]) {
         if (!spot.containsKey('Time') && spot.containsKey('TimeSlot')) {
@@ -96,7 +99,6 @@ class _TravelDayPageState extends State<TravelDayPage>
           }
         }
 
-        // 🧠 額外：如果還是沒有 Time，就試著從 Raw 資料解析
         if (!spot.containsKey('Time')) {
           final time = _extractTimeFromText(spot['Raw'] ?? '');
           if (time != null) spot['Time'] = time;
@@ -108,11 +110,21 @@ class _TravelDayPageState extends State<TravelDayPage>
       }
     }
 
+    // ✅ 畫面 build 完才執行 scroll 跳轉，避免 not attached
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      for (final controller in _scrollControllers) {
+        if (controller.hasClients) {
+          controller.jumpTo(800); // 一格 100px，高度為 8 * 100 = 800px
+        }
+      }
+    });
+
     _loadNotesFromStorage().then((_) {
       _generateTransports();
       setState(() {});
     });
 
+    // ✅ Debug log
     print("🧳 TravelDayPage 收到 initialSpots: ${widget.initialSpots?.length}");
     for (int i = 0; i < (widget.initialSpots?.length ?? 0); i++) {
       print("📆 Day ${i + 1} 景點數量: ${widget.initialSpots![i].length}");
@@ -120,8 +132,17 @@ class _TravelDayPageState extends State<TravelDayPage>
         print("  🔸 ${spot['Name']} (${spot['TimeSlot']})");
       }
     }
-
   }
+
+
+  @override
+  void dispose() {
+    for (final controller in _scrollControllers) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
 
   String? _extractTimeFromText(String text) {
     final match = RegExp(r'^(\d{1,2}):\d{2}').firstMatch(text);
@@ -484,6 +505,7 @@ class _TravelDayPageState extends State<TravelDayPage>
 
 
                           return SingleChildScrollView(
+                            controller: _scrollControllers[dayIndex],
                             scrollDirection: Axis.vertical,
                             child: ConstrainedBox(
                               constraints: BoxConstraints(minHeight: blockHeight * 24),
