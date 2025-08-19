@@ -54,6 +54,8 @@ class _TravelDayPageState extends State<TravelDayPage>
   static const distanceBlockHeight = 30.0;
   static const blockHeight = hourBlockHeight + distanceBlockHeight;
   //final ScrollController _scrollController = ScrollController();
+  bool _isSaving = false;
+
 
   @override
   void initState() {
@@ -322,6 +324,9 @@ class _TravelDayPageState extends State<TravelDayPage>
   }
 
   void _saveTrip() async {
+    if (_isSaving) return;
+    _isSaving = true;
+
     final tripData = {
       'trip_name': widget.tripName,
       'start_date': DateFormat('yyyy-MM-dd').format(widget.startDate),
@@ -335,13 +340,11 @@ class _TravelDayPageState extends State<TravelDayPage>
     final prefs = await SharedPreferences.getInstance();
     List<String> tripList = prefs.getStringList('trip_list') ?? [];
 
-    // ✅ 移除舊的同名行程（避免重複儲存）
     tripList.removeWhere((tripStr) {
       final decoded = jsonDecode(tripStr);
       return decoded['trip_name'] == widget.tripName;
     });
 
-    // ✅ 加入新的行程
     tripList.add(jsonEncode(tripData));
     await prefs.setStringList('trip_list', tripList);
 
@@ -349,12 +352,14 @@ class _TravelDayPageState extends State<TravelDayPage>
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('✅ 行程已儲存')),
       );
-
-      // ⭐️ 儲存完成後跳回 TravelInputPage
-    Navigator.pop(context, tripData);
-    
+      Navigator.pop(context, tripData);
     }
+
+    print("🔁 儲存觸發：${DateTime.now()}");
+
+    _isSaving = false;
   }
+
 
 
 
