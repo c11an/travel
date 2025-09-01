@@ -136,6 +136,24 @@ class _TravelDayPageState extends State<TravelDayPage>
     }
   }
 
+  List<Map<String, String>> favoriteSpots = [];
+
+  bool _isFavorited(Map<String, String> spot) {
+    return favoriteSpots.any((s) => s['Name'] == spot['Name']);
+  }
+
+  void _toggleFavorite(Map<String, String> spot) {
+    final exists = _isFavorited(spot);
+    setState(() {
+      if (exists) {
+        favoriteSpots.removeWhere((s) => s['Name'] == spot['Name']);
+      } else {
+        favoriteSpots.add(spot);
+      }
+    });
+  }
+
+
 
   @override
   void dispose() {
@@ -819,11 +837,7 @@ class _TravelDayPageState extends State<TravelDayPage>
 
   // 顯示簡化版景點資訊 Dialog（只有關閉與資訊按鈕）
   void _showSpotInfoDialog(Map<String, String> spot) {
-    final name = spot['Name'] ?? '無名稱';
-    final address = spot['Add'] ?? '無地址';
     String imageUrl = '';
-
-    // 嘗試解析圖片 URL
     try {
       final pictureField = spot['Picture1'];
       if (pictureField != null && pictureField.isNotEmpty) {
@@ -835,86 +849,103 @@ class _TravelDayPageState extends State<TravelDayPage>
         }
       }
     } catch (e) {
-      debugPrint("⚠️ 圖片解析錯誤：$e");
+      print('⚠️ 圖片處理錯誤: $e');
+      imageUrl = '';
     }
 
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
-        title: Text(name),
-        content: SingleChildScrollView(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxHeight: 300), // 👈 避免 overflow
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text("📍 $address", style: const TextStyle(fontSize: 14)),
-                const SizedBox(height: 8),
-                if (imageUrl.isNotEmpty)
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: CachedNetworkImage(
-                      imageUrl: imageUrl,
-                      height: 150,
-                      width: double.infinity,
-                      fit: BoxFit.cover,
-                      placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
-                      errorWidget: (context, url, error) => const Icon(Icons.error),
-                    ),
-                  )
-                else
-                  const Text("❌ 無圖片"),
-              ],
+      builder: (context) {
+        final description = (spot['Toldescribe']?.trim().isNotEmpty ?? false)
+            ? spot['Toldescribe']
+            : (spot['Description'] ?? '❌ 沒有描述資料');
+
+        return AlertDialog(
+          title: Text(spot['Name'] ?? '無名稱'),
+          content: SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 350), // 避免過高
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if ((spot['Add'] ?? '').isNotEmpty)
+                    Text("📍 ${spot['Add']}")
+                  else
+                    const Text("📍 無地址"),
+                  const SizedBox(height: 12),
+                  if (imageUrl.startsWith('http'))
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: AspectRatio(
+                        aspectRatio: 16 / 9, // 穩定比例
+                        child: CachedNetworkImage(
+                          imageUrl: imageUrl,
+                          fit: BoxFit.cover,
+                          placeholder: (context, url) =>
+                              const Center(child: CircularProgressIndicator()),
+                          errorWidget: (context, url, error) =>
+                              const Icon(Icons.error),
+                        ),
+                      ),
+                    )
+                  else
+                    const Text("❌ 無圖片"),
+                ],
+              ),
             ),
           ),
-        ),
-
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("關閉"),
-          ),
-          TextButton(
-            onPressed: () {
-              final lat = spot['Py'];
-              final lng = spot['Px'];
-              if (lat != null && lng != null) {
-                final url =
-                    'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng&travelmode=driving';
-                launchUrl(
-                  Uri.parse(url),
-                  mode: LaunchMode.externalApplication,
-                );
-              }
-            },
-            child: const Text('🧭 導航'),
-          ),
-          TextButton(
-            onPressed: () {
-              final description = spot['Toldescribe'] ?? spot['Description'] ?? '❌ 沒有描述資料';
-              showDialog(
-                context: context,
-                builder: (_) => AlertDialog(
-                  title: const Text("📘 景點資訊"),
-                  content: SingleChildScrollView(
-                    child: Text(description),
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text("關閉"),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("關閉"),
+            ),
+            TextButton(
+              onPressed: () {
+                final lat = spot['Py'];
+                final lng = spot['Px'];
+                if (lat != null && lng != null) {
+                  final url =
+                      'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng&travelmode=driving';
+                  launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+                }
+              },
+              child: const Text('🧭 導航'),
+            ),
+            TextButton(
+              onPressed: () {
+                _toggleFavorite(spot);
+                Navigator.pop(context);
+              },
+              child: Text(_isFavorited(spot) ? '⭐ 移除收藏' : '⭐ 加入收藏'),
+            ),
+            TextButton(
+              onPressed: () {
+                final longDesc = description;
+                showDialog(
+                  context: context,
+                  builder: (_) => AlertDialog(
+                    title: const Text("📘 景點資訊"),
+                    content: SingleChildScrollView(
+                      child: Text(longDesc!),
                     ),
-                  ],
-                ),
-              );
-            },
-            child: const Text("📘 資訊"),
-          ),
-        ],
-      ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text("關閉"),
+                      ),
+                    ],
+                  ),
+                );
+              },
+              child: const Text("📘 資訊"),
+            ),
+          ],
+        );
+      },
     );
   }
+
 
 
 
