@@ -8,231 +8,183 @@ import 'package:travel/profile_page.dart';
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
 
+  static const _bgGray = Color(0xFFF5F5F5);
+  static const _pillBlue = Color(0xFFB8DEFF); // 手稿標的淺藍
+  static const _royalBlue = Color(0xFF283653); // 寶藍字色
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      extendBodyBehindAppBar: true,
+      backgroundColor: _bgGray,
       appBar: AppBar(
         title: const Text(''),
-        centerTitle: true,
         backgroundColor: Colors.transparent,
         elevation: 0,
-      ),
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          /// ✅ 背景圖
-          Image.asset(
-            'assets/images/background-3.jpg',
-            fit: BoxFit.cover,
-          ),
-
-          /// ✅ 前景區塊
-          Column(
-            children: [
-              const SizedBox(height: kToolbarHeight + 24),
-
-              /// ✅ 標題面板 Trip Tok
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.92),
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black12,
-                        blurRadius: 6,
-                        offset: const Offset(2, 4),
-                      )
-                    ],
-                  ),
-                  child: const Center(
-                    child: Text(
-                      'Trip Tok',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 16),
-
-              /// ✅ 功能按鈕區
-              Expanded(
-                child: Container(
-                  margin: const EdgeInsets.all(16),
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.92),
-                    borderRadius: BorderRadius.circular(24),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black12,
-                        blurRadius: 8,
-                        offset: const Offset(2, 4),
-                      ),
-                    ],
-                  ),
-                  child: _buildCrossLayout(context),
-                ),
-              ),
-            ],
+        // 右上角「首頁/返回」區：這裡放一個 home 與 info
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.home_outlined, color: Colors.black87),
+            onPressed: () {}, // 已在首頁，不做事
           ),
         ],
       ),
-    );
-  }
+      body: SafeArea(
+        child: Column(
+          children: [
+            const SizedBox(height: 12),
 
-  Widget _buildCrossLayout(BuildContext context) {
-    return Center(
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          SizedBox(
-            width: 400,
-            height: 520,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    _buildRectButton(
-                      label: "找景點",
-                      icon: Icons.location_on,
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => const TravelFormPage()),
-                        );
-                      },
-                    ),
-                    _buildRectButton(
-                      label: "我的行程",
-                      icon: Icons.map,
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => const TravelInputPage()),
-                        );
-                      },
-                    ),
-                  ],
-                ),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    _buildRectButton(
-                      label: "日誌",
-                      icon: Icons.book,
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => const JournalPage()),
-                        );
-                      },
-                    ),
-                    _buildRectButton(
-                      label: "個人頁面",
-                      icon: Icons.person,
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => const ProfilePage()),
-                        );
-                      },
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-
-          /// ✅ 中央紅色圓形 AI 推薦按鈕
-          GestureDetector(
-            onTap: () {
-              Navigator.push(
+            /// 顶部橢圓「AI 推薦」
+            _AiRecommendPill(
+              onTap: () => Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const AIRecommendPage()),
-              );
-            },
-            child: Container(
-              width: 100,
-              height: 100,
-              decoration: const BoxDecoration(
-                color: Colors.redAccent,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black26,
-                    blurRadius: 8,
-                    offset: Offset(2, 4),
-                  ),
-                ],
               ),
-              child: const Center(
-                child: Text(
-                  "AI\n推薦",
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
+            ),
+
+            const SizedBox(height: 24),
+
+            /// 2x2 方塊
+            Expanded(
+              child: Center(
+                child: LayoutBuilder(
+                  builder: (context, c) {
+                    // 讓方塊在窄螢幕也不會擠壞
+                    final maxWidth = c.maxWidth.clamp(320.0, 560.0);
+                    final itemSize = (maxWidth - 32 /*左右padding*/ - 16 /*格間距總和*/) / 2;
+                    return SizedBox(
+                      width: maxWidth,
+                      child: Wrap(
+                        spacing: 16,
+                        runSpacing: 16,
+                        alignment: WrapAlignment.center,
+                        children: [
+                          _SquareButton(
+                            label: '我的行程',
+                            icon: Icons.map_outlined,
+                            onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => const TravelInputPage()),
+                            ),
+                            size: itemSize,
+                          ),
+                          _SquareButton(
+                            label: '搜尋',
+                            icon: Icons.location_on_outlined,
+                            onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => const TravelFormPage()),
+                            ),
+                            size: itemSize,
+                          ),
+                          _SquareButton(
+                            label: '日誌',
+                            icon: Icons.book_outlined,
+                            onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => const JournalPage()),
+                            ),
+                            size: itemSize,
+                          ),
+                          _SquareButton(
+                            label: '個人',
+                            icon: Icons.person_outline,
+                            onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => const ProfilePage()),
+                            ),
+                            size: itemSize,
+                          ),
+                        ],
+                      ),
+                    );
+                  },
                 ),
               ),
             ),
-          ),
-        ],
+            const SizedBox(height: 16),
+          ],
+        ),
       ),
     );
   }
+}
 
-  Widget _buildRectButton({
-    required String label,
-    required IconData icon,
-    required VoidCallback onTap,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.all(4.0),
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          width: 140,
-          height: 140,
-          decoration: BoxDecoration(
-            color: Colors.blue.shade50,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black12,
-                blurRadius: 4,
-                offset: const Offset(2, 2),
-              )
-            ],
+class _AiRecommendPill extends StatelessWidget {
+  const _AiRecommendPill({required this.onTap});
+  final VoidCallback onTap;
+
+  static const _pillBlue = Color(0xFFB8DEFF);
+  static const _royalBlue = Color(0xFF283653);
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
+        decoration: BoxDecoration(
+          color: _pillBlue,
+          borderRadius: BorderRadius.circular(999),
+          boxShadow: const [
+            BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(2, 4)),
+          ],
+        ),
+        child: const Text(
+          'AI 推薦',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w800,
+            color: _royalBlue,
+            letterSpacing: 1.2,
           ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, size: 40, color: Colors.blue),
-              const SizedBox(height: 8),
-              Text(
-                label,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SquareButton extends StatelessWidget {
+  const _SquareButton({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+    required this.size,
+  });
+
+  final String label;
+  final IconData icon;
+  final VoidCallback onTap;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: onTap,
+      child: Ink(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: const [
+            BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(2, 4)),
+          ],
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: size * 0.35, color: Colors.black87),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: size * 0.16,
+                fontWeight: FontWeight.w700,
+                color: Colors.black87,
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

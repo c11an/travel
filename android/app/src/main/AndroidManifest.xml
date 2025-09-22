@@ -14,8 +14,8 @@
 
       <!-- ✅ Google Maps API 金鑰：放在 application 裡 -->
       <meta-data
-          android:name="com.google.android.geo.API_KEY"
-          android:value="AIzaSyC1UdVpu5sEOvOrJCidr8YZPMWTgQKazjs" />
+        android:name="com.google.android.geo.API_KEY"
+        android:value="${MAPS_API_KEY}" />
 
       <!-- Flutter plugin 登記 -->
       <meta-data
@@ -42,6 +42,9 @@
               <category android:name="android.intent.category.LAUNCHER" />
           </intent-filter>
       </activity>
+        <!-- iOS 預留設定 -->
+    <meta-data android:name="io.flutter.embedded_views_preview" android:value="true" />
+
   </application>
 
   <!-- Flutter 查詢可處理 PROCESS_TEXT 的 app -->

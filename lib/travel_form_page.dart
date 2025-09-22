@@ -7,7 +7,6 @@ import 'package:csv/csv.dart';
 import 'package:intl/intl.dart';
 import 'package:location/location.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:travel/travel_info_page.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'dart:convert';
 import 'package:travel/travel_schedule_page.dart';

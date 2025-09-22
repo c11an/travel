@@ -29,6 +29,13 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        manifestPlaceholders += mapOf(
+        "MAPS_API_KEY" to (
+            (project.findProperty("MAPS_API_KEY") as String?)
+                ?: System.getenv("MAPS_API_KEY")
+                ?: ""
+        )
+    )
     }
 
     buildTypes {

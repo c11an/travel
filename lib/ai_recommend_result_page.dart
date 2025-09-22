@@ -214,16 +214,17 @@ class _AIRecommendResultPageState extends State<AIRecommendResultPage> {
           ),
         ),
       ).then((result) async {
-        if (result != null && result is Map<String, dynamic>) {
-          final prefs = await SharedPreferences.getInstance();
-          final tripList = prefs.getStringList('trip_list') ?? [];
-          tripList.add(jsonEncode(result));
-          await prefs.setStringList('trip_list', tripList);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('✅ GPT 行程已儲存至行程規劃')),
-          );
+        if (!mounted) return;
+        // 只在 TravelDayPage 明確回傳 saved=true 時，往上一頁回報，不再自己寫入！
+        if (result is Map && result['saved'] == true) {
+          Navigator.pop(context, {'saved': true});
+          // 如果不想往上一頁回報，也可以只顯示提示，別再存：
+          // ScaffoldMessenger.of(context).showSnackBar(
+          //   const SnackBar(content: Text('✅ 行程已儲存')),
+          // );
         }
       });
+
     } catch (e, stackTrace) {
       print('❌ 解析或建立行程失敗：$e');
       print(stackTrace);
