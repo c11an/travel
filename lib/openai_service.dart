@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class OpenAIService {
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
@@ -19,45 +20,47 @@ class OpenAIService {
   }) async {
     try {
       print("📥 開始呼叫 GPT API...");
-      final apiKey = await _storage.read(key: 'OPENAI_API_KEY');
-
-      if (apiKey == null || apiKey.isEmpty) {
-        print("❌ 無法讀取 API 金鑰！");
-        return "❌ 找不到 API 金鑰，請確認 main.dart 是否有正確設定。";
+      String apiKey = (dotenv.maybeGet('OPENAI_API_KEY') ?? '').trim();
+      if (apiKey.isEmpty) {
+        apiKey = (await _storage.read(key: 'OPENAI_API_KEY') ?? '').trim();
       }
+      if (apiKey.isEmpty) {
+        print("❌ 無法讀取 API 金鑰（OPENAI_API_KEY）");
+        return "❌ 找不到 API 金鑰，請確認 .env 與 main.dart 已載入。";
+      }
+      // 可選：把 dotenv 讀到的 key 回寫到 SecureStorage，之後就算沒載到 .env 也能用
+      await _storage.write(key: 'OPENAI_API_KEY', value: apiKey);
 
       const endpoint = 'https://api.openai.com/v1/chat/completions';
 
-      final response = await http.post(
-        Uri.parse(endpoint),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $apiKey',
-        },
-        body: jsonEncode({
-          "model": "gpt-3.5-turbo",
-          "messages": [
-            {
-              "role": "system",
-              "content": "你是一位專業的台灣旅遊行程規劃師，只能根據提供的景點清單安排行程，禁止產生清單以外的景點。"
-            },
-            {
-              "role": "user",
-              "content": _generatePrompt(
-                city: city,
-                types: types,
-                budget: budget,
-                transport: transport,
-                startDate: startDate,
-                endDate: endDate,
-                availableSpots: availableSpots,
-              )
-            }
-          ],
-          "max_tokens": 1000,
-          "temperature": 0.7,
-        }),
-      );
+      final response = await http
+        .post(
+          Uri.parse(endpoint),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $apiKey',
+          },
+          body: jsonEncode({
+            "model": "gpt-3.5-turbo",
+            "messages": [
+              {"role": "system", "content": "你是一位專業的台灣旅遊行程規劃師，只能根據提供的景點清單安排行程，禁止產生清單以外的景點。"},
+              {"role": "user", "content": _generatePrompt(
+                  city: city,
+                  types: types,
+                  budget: budget,
+                  transport: transport,
+                  startDate: startDate,
+                  endDate: endDate,
+                  availableSpots: availableSpots,
+                )
+              }
+            ],
+            "max_tokens": 1000,
+            "temperature": 0.7,
+          }),
+        )
+        .timeout(const Duration(seconds: 60));
+
 
       print("📡 GPT 回傳狀態碼：${response.statusCode}");
 

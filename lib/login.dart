@@ -389,7 +389,7 @@ class _RegisterPageState extends State<RegisterPage> {
               ),
               const SizedBox(height: 20),
               DropdownButtonFormField<String>(
-                value: _selectedGender,
+                initialValue: _selectedGender,
                 hint: const Text('選擇性別', style: TextStyle(color: deepBrown)),
                 onChanged: (String? newValue) {
                   setState(() {
@@ -438,7 +438,7 @@ class _RegisterPageState extends State<RegisterPage> {
               ),
               const SizedBox(height: 20),
               DropdownButtonFormField<String>(
-                value: _selectedPreference,
+                initialValue: _selectedPreference,
                 hint: const Text('選擇旅遊偏好', style: TextStyle(color: deepBrown)),
                 onChanged: (String? newValue) {
                   setState(() {

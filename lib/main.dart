@@ -9,6 +9,8 @@ void main() async {
 
   try {
     await dotenv.load(fileName: ".env");
+    debugPrint('ENV keys: ${dotenv.env.keys.toList()}');
+    debugPrint('OPENAI_API_KEY length = ${(dotenv.maybeGet('OPENAI_API_KEY') ?? '').length}');
   } catch (e) {
     print("❌ 無法載入 .env: $e");
   }

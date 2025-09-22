@@ -354,65 +354,68 @@ class _TravelFormPageState extends State<TravelFormPage> {
 
   void _goToSchedulePage() async {
     if (widget.browseOnly) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('目前是瀏覽模式，無法排入行程表')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('目前是瀏覽模式，無法排入行程表')),
+      );
       return;
     }
 
     if (selectedSpots.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('請先選擇景點')));
-      return;
-    }
-
-    Map<String, dynamic>? tripInfo = widget.initialData;
-
-    if (tripInfo == null) {
-      // ⛳ 如果沒有 initialData，跳到 TravelInfoInputPage 請使用者填資料
-      final result = await Navigator.push<Map<String, dynamic>>(
-        context,
-        MaterialPageRoute(builder: (_) => const TravelInfoInputPage()),
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('請先選擇景點')),
       );
-
-      if (result == null) {
-        // 使用者取消或沒填資料
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('未完成行程資訊填寫')));
-        return;
-      }
-      tripInfo = result;
-    }
-
-    // 🛫 正常跳到 TravelSchedulePage 排行程
-    final startStr = tripInfo['start_date'];
-    final endStr = tripInfo['end_date'];
-
-    if (startStr == null || endStr == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('行程資料異常，無法排表')));
       return;
     }
 
-    final startDate = DateFormat('yyyy-MM-dd').parse(startStr);
-    final endDate = DateFormat('yyyy-MM-dd').parse(endStr);
+    // 1) 先把可為 null 的 initialData 兜成不為空的 Map
+    final Map<String, dynamic> info = (widget.initialData ?? {});
 
+    // 2) 安全取得日期（同時支援 start_date / startDate 等常見鍵名）
+    final DateTime? startDate = _toDate(info['start_date'] ?? info['startDate'] ?? info['start']);
+    final DateTime? endDate   = _toDate(info['end_date']   ?? info['endDate']   ?? info['end']);
+
+    if (startDate == null || endDate == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('行程日期缺失或格式錯誤，無法排表')),
+      );
+      return;
+    }
+
+    // 3) 正常跳到排程頁
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder:
-            (_) => TravelSchedulePage(
-              selectedSpots: selectedSpots,
-              startDate: startDate,
-              endDate: endDate,
-              selectedDayIndex: 0,
-            ),
+        builder: (_) => TravelSchedulePage(
+          selectedSpots: selectedSpots,
+          startDate: startDate,
+          endDate: endDate,
+          selectedDayIndex: 0,
+        ),
       ),
     );
   }
+
+  /// 安全把動態值轉成 DateTime
+  /// - 支援：DateTime 物件、或字串（yyyy-MM-dd / yyyy/MM/dd / yyyyMMdd / ISO 8601）
+  /// - 失敗回傳 null
+  DateTime? _toDate(dynamic v) {
+    if (v == null) return null;
+    if (v is DateTime) return v;
+    if (v is String) {
+      final s = v.trim();
+      if (s.isEmpty) return null;
+
+      // 先嘗試 Dart 內建解析（可吃多數 ISO 格式）
+      try { return DateTime.parse(s); } catch (_) {}
+
+      // 再試常見格式
+      for (final fmt in ['yyyy-MM-dd', 'yyyy/MM/dd', 'yyyyMMdd']) {
+        try { return DateFormat(fmt).parseStrict(s); } catch (_) {}
+      }
+    }
+    return null;
+  }
+
 
   @override
 Widget build(BuildContext context) {

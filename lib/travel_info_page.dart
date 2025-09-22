@@ -128,7 +128,7 @@ class _TravelInfoInputPageState extends State<TravelInfoInputPage> {
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
-              value: _selectedTripType,
+              initialValue: _selectedTripType,
               items:
                   _tripTypeOptions
                       .map(
@@ -146,7 +146,7 @@ class _TravelInfoInputPageState extends State<TravelInfoInputPage> {
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
-              value: _selectedTransport,
+              initialValue: _selectedTransport,
               items:
                   _transportOptions
                       .map((t) => DropdownMenuItem(value: t, child: Text(t)))
