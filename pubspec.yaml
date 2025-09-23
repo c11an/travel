@@ -56,6 +56,23 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  flutter_launcher_icons: ^0.13.1
+
+flutter_launcher_icons:
+  android: true
+  ios: false
+
+  # 前景：用你這張透明 PNG
+  adaptive_icon_foreground: assets/images/app_icon.png
+
+  # 背景：用顏色（可改色碼，例如 #B8DEFF）
+  adaptive_icon_background: "#F5F5F5"
+
+  # （建議）同張圖給 Android 7 以下的扁平圖
+  image_path_android: assets/icons/app_icon.png
+
+  # Android 13+ 單色（通知/捷徑會用到；可先不設）
+  # adaptive_icon_monochrome: assets/icons/app_icon_monochrome.png
  
 
   # The "flutter_lints" package below contains a set of recommended lints to
@@ -84,6 +101,9 @@ flutter:
     - assets/images/background-1.jpg
     - assets/images/background-2.jpg
     - assets/images/background-3.jpg
+    - assets/images/app_icon.png
+    - assets/images/search.png
+    - assets/images/destination.png
     - assets/data/景點.csv
     - assets/data/步道.csv
     - assets/data/自行車道.csv

@@ -12,6 +12,7 @@ class HomePage extends StatelessWidget {
   static const _pillBlue = Color(0xFFB8DEFF); // 手稿標的淺藍
   static const _royalBlue = Color(0xFF283653); // 寶藍字色
 
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -60,7 +61,7 @@ class HomePage extends StatelessWidget {
                         children: [
                           _SquareButton(
                             label: '我的行程',
-                            icon: Icons.map_outlined,
+                            imageAsset: 'assets/images/destination.png',
                             onTap: () => Navigator.push(
                               context,
                               MaterialPageRoute(builder: (_) => const TravelInputPage()),
@@ -69,7 +70,7 @@ class HomePage extends StatelessWidget {
                           ),
                           _SquareButton(
                             label: '搜尋',
-                            icon: Icons.location_on_outlined,
+                            imageAsset: 'assets/images/search.png',
                             onTap: () => Navigator.push(
                               context,
                               MaterialPageRoute(builder: (_) => const TravelFormPage()),
@@ -109,6 +110,8 @@ class HomePage extends StatelessWidget {
   }
 }
 
+
+
 class _AiRecommendPill extends StatelessWidget {
   const _AiRecommendPill({required this.onTap});
   final VoidCallback onTap;
@@ -146,18 +149,34 @@ class _AiRecommendPill extends StatelessWidget {
 class _SquareButton extends StatelessWidget {
   const _SquareButton({
     required this.label,
-    required this.icon,
     required this.onTap,
     required this.size,
+    this.icon,              // 內建 Icon（可選）
+    this.imageAsset,        // 自訂圖片路徑（可選）
+    this.iconColor = Colors.black87,
   });
 
   final String label;
-  final IconData icon;
   final VoidCallback onTap;
   final double size;
+  final IconData? icon;
+  final String? imageAsset;
+  final Color iconColor;
 
   @override
   Widget build(BuildContext context) {
+    final double iconSize = size * 0.35;
+
+    final Widget leading = (imageAsset != null)
+        ? Image.asset(
+            imageAsset!,
+            width: iconSize,
+            height: iconSize,
+            fit: BoxFit.contain,
+            filterQuality: FilterQuality.high,
+          )
+        : Icon(icon, size: iconSize, color: iconColor);
+
     return InkWell(
       borderRadius: BorderRadius.circular(16),
       onTap: onTap,
@@ -174,7 +193,7 @@ class _SquareButton extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: size * 0.35, color: Colors.black87),
+            leading,
             const SizedBox(height: 8),
             Text(
               label,
@@ -190,3 +209,4 @@ class _SquareButton extends StatelessWidget {
     );
   }
 }
+
