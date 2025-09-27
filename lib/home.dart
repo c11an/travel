@@ -151,9 +151,9 @@ class _SquareButton extends StatelessWidget {
     required this.label,
     required this.onTap,
     required this.size,
-    this.icon,              // 內建 Icon（可選）
-    this.imageAsset,        // 自訂圖片路徑（可選）
-    this.iconColor = Colors.black87,
+    this.icon,              // 可選
+    this.imageAsset,        // 可選
+    this.iconColor = const Color(0xFF4F46E5), // ✅ 給預設色（或 Colors.blue）
   });
 
   final String label;
@@ -161,8 +161,7 @@ class _SquareButton extends StatelessWidget {
   final double size;
   final IconData? icon;
   final String? imageAsset;
-  final Color iconColor;
-
+  final Color iconColor; // ✅ 不再報錯（一定有值）
   @override
   Widget build(BuildContext context) {
     final double iconSize = size * 0.35;

@@ -3,7 +3,6 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:travel/travel_day_page.dart'; // ⭐記得import
 
 class AIRecommendResultPage extends StatefulWidget {
