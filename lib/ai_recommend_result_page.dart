@@ -4,6 +4,10 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:travel/travel_day_page.dart'; // ⭐記得import
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:travel/personalization_controller.dart'; // 第4/5步控制器
+import 'package:travel/api.dart';                        // 你先前建的 ApiClient
+
 
 class AIRecommendResultPage extends StatefulWidget {
   final String? city;
@@ -16,8 +20,8 @@ class AIRecommendResultPage extends StatefulWidget {
   final String? gptRecommendation;
   final String? mood;
   final String? need;
-
   final List<Map<String, String>> allSpots; // 🔧 新增
+  
   
 
 
@@ -45,11 +49,18 @@ class _AIRecommendResultPageState extends State<AIRecommendResultPage> {
   List<Map<String, dynamic>> recommendedSpots = [];
   final Set<String> favoriteSpots = {}; // ✅收藏列表
   
+  late final PersonalizationController p;
+  final api = ApiClient();
+  String? _uid;
+
 
 
   @override
   void initState() {
     super.initState();
+    p = PersonalizationController();
+    p.init();          // 載入上次的全域權重（若有）
+    _ensureUid();      // 產生並保存一個穩定的 client id
     print('🧠 mood: ${widget.mood}, 🎯 need: ${widget.need}');
     //_loadRecommendedSpots();
   }
@@ -69,10 +80,21 @@ class _AIRecommendResultPageState extends State<AIRecommendResultPage> {
   //  });
   //}
 
+  Future<void> _ensureUid() async {
+    final prefs = await SharedPreferences.getInstance();
+    _uid = prefs.getString('uid');
+    if (_uid == null) {
+      _uid = 'device-${DateTime.now().millisecondsSinceEpoch}';
+      await prefs.setString('uid', _uid!);
+    }
+  }
+
+  
+
   void _convertGptToTravelPage() async {
     print("📊 allSpots.first 內容: ${widget.allSpots.isNotEmpty ? widget.allSpots.first : '空的'}");
     final Map<int, List<Map<String, String>>> dayMap = {};
-    List<List<Map<String, String>>> matchedSpots = []; // 👈 提前宣告
+    List<List<Map<String, String>>> matchedSpots = [];
 
     try {
       final gptText = widget.gptRecommendation ?? '';
@@ -91,13 +113,13 @@ class _AIRecommendResultPageState extends State<AIRecommendResultPage> {
         return;
       }
 
-      // 🧠 GPT 內容解析：Day、時間、景點
+      // 🧠 解析 GPT 內容 → dayMap
       final lines = gptText.split('\n');
       int currentDay = -1;
       String? currentTime;
 
-      for (var line in lines) {
-        line = line.trim();
+      for (var raw in lines) {
+        var line = raw.trim();
         if (line.isEmpty) continue;
 
         if (line.startsWith('Day')) {
@@ -110,10 +132,7 @@ class _AIRecommendResultPageState extends State<AIRecommendResultPage> {
           currentTime = line;
         } else if (line.startsWith('景點：') && currentDay >= 0 && currentTime != null) {
           final name = line.replaceFirst('景點：', '').trim();
-          dayMap[currentDay]?.add({
-            'time': currentTime,
-            'name': name,
-          });
+          dayMap[currentDay]?.add({'time': currentTime!, 'name': name});
         }
       }
 
@@ -121,12 +140,12 @@ class _AIRecommendResultPageState extends State<AIRecommendResultPage> {
         throw Exception('GPT 行程內容無法解析成天數結構');
       }
 
-      // 📅 計算行程天數
+      // 📅 建立每天的清單
       final maxDayIndex = dayMap.keys.reduce(max);
       final tripDays = max(widget.endDate!.difference(widget.startDate!).inDays + 1, maxDayIndex + 1);
       matchedSpots = List.generate(tripDays, (_) => <Map<String, String>>[]);
 
-      // 📍 景點比對
+      // 📍 比對 GPT 名稱 → allSpots
       for (final entry in dayMap.entries) {
         final int dayIndex = entry.key;
 
@@ -137,34 +156,27 @@ class _AIRecommendResultPageState extends State<AIRecommendResultPage> {
 
           for (final spot in widget.allSpots) {
             final spotName = spot['Name'] ?? '';
-            normalize(String s) => s.replaceAll(' ', '').toLowerCase();
+            String normalize(String s) => s.replaceAll(' ', '').toLowerCase();
             if (normalize(spotName).contains(normalize(gptName)) ||
                 normalize(gptName).contains(normalize(spotName))) {
-                bestSpot = {
-                  ...spot,
-                  'TimeSlot': timeSlot, // ⏰加入時間
-                };
-                break;
-              }
+              bestSpot = {...spot, 'TimeSlot': timeSlot};
+              break;
+            }
           }
 
           if (bestSpot != null) {
-            // ⏰ 將 TimeSlot 拆解為 Time 與 Duration
             final parts = timeSlot.split('~');
             if (parts.length == 2) {
               final start = parts[0].trim();
               final end = parts[1].trim();
-
               final startHour = int.tryParse(start.split(':').first);
               final endHour = int.tryParse(end.split(':').first);
-
               if (startHour != null && endHour != null) {
                 bestSpot['Time'] = startHour.toString().padLeft(2, '0');
                 bestSpot['Duration'] = (endHour - startHour).toString();
                 print("Day $dayIndex >> ${bestSpot['Name']} at ${bestSpot['Time']} for ${bestSpot['Duration']}h");
               }
             }
-
             matchedSpots[dayIndex].add(bestSpot);
           } else {
             print('❓ 找不到對應景點：$gptName');
@@ -172,29 +184,48 @@ class _AIRecommendResultPageState extends State<AIRecommendResultPage> {
         }
       }
 
-      // ✅ 排序景點（根據時間）
+      // ✅ 先依時間排序
       for (var day in matchedSpots) {
         day.sort((a, b) => (a['TimeSlot'] ?? '').compareTo(b['TimeSlot'] ?? ''));
       }
 
-      // 🔍 Debug 日誌
-      print("🧩 GPT 解析出的 DayMap：$dayMap");
-      print("📊 allSpots 數量：${widget.allSpots.length}");
-      for (final entry in dayMap.entries) {
-        print("📆 Day ${entry.key + 1}");
-        for (final item in entry.value) {
-          final gptName = item['name'];
-          print("🔍 GPT 景點名稱：$gptName");
-        }
-      }
-      print("🔥 matchedSpots：${jsonEncode(matchedSpots)}");
-
-      print("🧭 allSpots 內容前 5 筆：");
-      for (int i = 0; i < min(widget.allSpots.length, 5); i++) {
-        final spot = widget.allSpots[i];
-        print("  🔹 ${spot['Name']} / ${spot['Type']}");
+      // 🔁【第4步】用「本機個人化模型」對每天清單重排
+      final budget = widget.budget ?? 0;
+      final prefers = widget.types ?? const <String>[];
+      for (int i = 0; i < matchedSpots.length; i++) {
+        matchedSpots[i] = p.reRankCandidates(
+          matchedSpots[i],
+          budget: budget,
+          typesPrefer: prefers,
+          // hour 可不傳，controller 會用預設 10 點；你也可改成從 Time 取每個 spot 的小時做更精細打分
+        );
       }
 
+      // 🧪（可選）印出重排後的結果
+      for (int i = 0; i < matchedSpots.length; i++) {
+        print("🔁 After ReRank - Day ${i + 1}: ${matchedSpots[i].map((s) => s['Name']).join(', ')}");
+      }
+
+      // 🧠【第5步】蒐集回饋→本機訓練→上傳 HFL
+      // 先把「採用於行程的景點」當作正樣本；負樣本先隨機抽未入選的同量目（之後可改成使用者操作後的真實回饋）
+      final positive = <Map<String, String>>[];
+      for (final day in matchedSpots) {
+        positive.addAll(day);
+      }
+      final chosenNames = positive.map((e) => e['Name']).whereType<String>().toSet();
+      final negative = widget.allSpots
+          .where((s) => !chosenNames.contains(s['Name']))
+          .take(positive.length.clamp(0, 30)) // 控制一下資料量
+          .toList();
+
+      for (final s in positive) {
+        p.feedbackPositive(s, budget: budget, typesPrefer: prefers);
+      }
+      for (final s in negative) {
+        p.feedbackNegative(s, budget: budget, typesPrefer: prefers);
+      }
+      // 累積到門檻才會真的訓練+上傳（預設 20 筆）；你也可以改 controller 的門檻
+      await p.maybeTrainAndUpload(api: api, uid: _uid ?? 'local');
 
       // 🚀 跳轉頁面
       Navigator.push(
@@ -214,37 +245,25 @@ class _AIRecommendResultPageState extends State<AIRecommendResultPage> {
         ),
       ).then((result) async {
         if (!mounted) return;
-        // 只在 TravelDayPage 明確回傳 saved=true 時，往上一頁回報，不再自己寫入！
         if (result is Map && result['saved'] == true) {
           Navigator.pop(context, {'saved': true});
-          // 如果不想往上一頁回報，也可以只顯示提示，別再存：
-          // ScaffoldMessenger.of(context).showSnackBar(
-          //   const SnackBar(content: Text('✅ 行程已儲存')),
-          // );
         }
       });
 
     } catch (e, stackTrace) {
       print('❌ 解析或建立行程失敗：$e');
       print(stackTrace);
-
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
           title: const Text('⚠️ 發生錯誤'),
           content: Text('解析 GPT 行程或跳轉頁面時發生錯誤：\n$e'),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('我知道了')),
-          ],
+          actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('我知道了'))],
         ),
       );
     }
-    print("✅ matchedSpots 最終輸出：");
-    for (int i = 0; i < matchedSpots.length; i++) {
-      print("Day ${i + 1}: ${matchedSpots[i].map((s) => s['Name']).join(', ')}");
-    }
-
   }
+
 
 
 
