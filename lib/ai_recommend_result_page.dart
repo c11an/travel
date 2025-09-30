@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:travel/travel_day_page.dart'; // ⭐記得import
@@ -99,12 +98,15 @@ class _AIRecommendResultPageState extends State<AIRecommendResultPage> {
     try {
       final gptText = widget.gptRecommendation ?? '';
 
-      if (widget.startDate == null || widget.endDate == null) {
+      if (widget.startDate == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('⚠️ 未設定旅遊日期，無法建立日行程')),
+          const SnackBar(content: Text('⚠️ 未設定旅遊起始日期')),
         );
         return;
       }
+
+      // 若使用者未選 endDate，但 GPT 有多天，我們會用解析結果補足；反之如果有 endDate 就尊重使用者
+      final hasUserEndDate = widget.endDate != null;
 
       if (gptText.trim().isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -140,14 +142,19 @@ class _AIRecommendResultPageState extends State<AIRecommendResultPage> {
         throw Exception('GPT 行程內容無法解析成天數結構');
       }
 
-      // 📅 建立每天的清單
-      final maxDayIndex = dayMap.keys.reduce(max);
-      final tripDays = max(widget.endDate!.difference(widget.startDate!).inDays + 1, maxDayIndex + 1);
+      // 📅 建立每天的清單長度：優先尊重使用者天數；若未指定則以 GPT 解析到的最大天數決定
+      final gptMaxDay = dayMap.keys.reduce(max) + 1; // day index 0-based → +1
+      final userDays = hasUserEndDate
+          ? widget.endDate!.difference(widget.startDate!).inDays + 1
+          : gptMaxDay;
+      final tripDays = max(1, userDays);
+
       matchedSpots = List.generate(tripDays, (_) => <Map<String, String>>[]);
 
       // 📍 比對 GPT 名稱 → allSpots
       for (final entry in dayMap.entries) {
         final int dayIndex = entry.key;
+        if (dayIndex < 0 || dayIndex >= matchedSpots.length) continue; // 超出使用者天數就忽略
 
         for (final item in entry.value) {
           final gptName = item['name']!;
@@ -171,10 +178,14 @@ class _AIRecommendResultPageState extends State<AIRecommendResultPage> {
               final end = parts[1].trim();
               final startHour = int.tryParse(start.split(':').first);
               final endHour = int.tryParse(end.split(':').first);
-              if (startHour != null && endHour != null) {
+              if (startHour != null && endHour != null && endHour > startHour) {
                 bestSpot['Time'] = startHour.toString().padLeft(2, '0');
                 bestSpot['Duration'] = (endHour - startHour).toString();
                 print("Day $dayIndex >> ${bestSpot['Name']} at ${bestSpot['Time']} for ${bestSpot['Duration']}h");
+              } else {
+                // 無效時段 → 給預設
+                bestSpot['Time'] = '08';
+                bestSpot['Duration'] = '1';
               }
             }
             matchedSpots[dayIndex].add(bestSpot);
@@ -184,12 +195,18 @@ class _AIRecommendResultPageState extends State<AIRecommendResultPage> {
         }
       }
 
-      // ✅ 先依時間排序
+      // ✅ 依時間排序
       for (var day in matchedSpots) {
-        day.sort((a, b) => (a['TimeSlot'] ?? '').compareTo(b['TimeSlot'] ?? ''));
+        day.sort((a, b) {
+          final ta = (a['TimeSlot'] ?? '').compareTo(b['TimeSlot'] ?? '');
+          if (ta != 0) return ta;
+          final ha = int.tryParse(a['Time'] ?? '0') ?? 0;
+          final hb = int.tryParse(b['Time'] ?? '0') ?? 0;
+          return ha.compareTo(hb);
+        });
       }
 
-      // 🔁【第4步】用「本機個人化模型」對每天清單重排
+      // 🔁（選用）本機 re-rank（不上傳）
       final budget = widget.budget ?? 0;
       final prefers = widget.types ?? const <String>[];
       for (int i = 0; i < matchedSpots.length; i++) {
@@ -197,17 +214,10 @@ class _AIRecommendResultPageState extends State<AIRecommendResultPage> {
           matchedSpots[i],
           budget: budget,
           typesPrefer: prefers,
-          // hour 可不傳，controller 會用預設 10 點；你也可改成從 Time 取每個 spot 的小時做更精細打分
         );
       }
 
-      // 🧪（可選）印出重排後的結果
-      for (int i = 0; i < matchedSpots.length; i++) {
-        print("🔁 After ReRank - Day ${i + 1}: ${matchedSpots[i].map((s) => s['Name']).join(', ')}");
-      }
-
-      // 🧠【第5步】蒐集回饋→本機訓練→上傳 HFL
-      // 先把「採用於行程的景點」當作正樣本；負樣本先隨機抽未入選的同量目（之後可改成使用者操作後的真實回饋）
+      // 🧠（選用）紀錄本機回饋（不上傳）
       final positive = <Map<String, String>>[];
       for (final day in matchedSpots) {
         positive.addAll(day);
@@ -215,7 +225,7 @@ class _AIRecommendResultPageState extends State<AIRecommendResultPage> {
       final chosenNames = positive.map((e) => e['Name']).whereType<String>().toSet();
       final negative = widget.allSpots
           .where((s) => !chosenNames.contains(s['Name']))
-          .take(positive.length.clamp(0, 30)) // 控制一下資料量
+          .take(positive.length.clamp(0, 30))
           .toList();
 
       for (final s in positive) {
@@ -224,17 +234,21 @@ class _AIRecommendResultPageState extends State<AIRecommendResultPage> {
       for (final s in negative) {
         p.feedbackNegative(s, budget: budget, typesPrefer: prefers);
       }
-      // 累積到門檻才會真的訓練+上傳（預設 20 筆）；你也可以改 controller 的門檻
-      await p.maybeTrainAndUpload(api: api, uid: _uid ?? 'local');
+      // ❌ 不要上傳：拿掉 maybeTrainAndUpload
+      // await p.maybeTrainAndUpload(api: api, uid: _uid ?? 'local');
 
-      // 🚀 跳轉頁面
+      // 🚀 跳轉頁面（只帶資料，不上傳）
+      final DateTime finalEndDate = hasUserEndDate
+          ? widget.endDate!
+          : widget.startDate!.add(Duration(days: matchedSpots.length - 1));
+
       Navigator.push(
         context,
         MaterialPageRoute(
           builder: (_) => TravelDayPage(
             tripName: widget.tripName,
             startDate: widget.startDate!,
-            endDate: widget.startDate!.add(Duration(days: matchedSpots.length - 1)),
+            endDate: finalEndDate,
             budget: widget.budget?.toInt() ?? 0,
             transport: widget.transport ?? '不限',
             initialSpots: matchedSpots,
@@ -244,10 +258,8 @@ class _AIRecommendResultPageState extends State<AIRecommendResultPage> {
           ),
         ),
       ).then((result) async {
-        if (!mounted) return;
-        if (result is Map && result['saved'] == true) {
-          Navigator.pop(context, {'saved': true});
-        }
+        // 這裡不處理上傳；真正的上傳已經移到 TravelDayPage 的「儲存」按鈕
+        // 你若想在返回時刷新上一頁 UI，可在這裡做 setState 或 showSnackBar。
       });
 
     } catch (e, stackTrace) {
@@ -263,6 +275,7 @@ class _AIRecommendResultPageState extends State<AIRecommendResultPage> {
       );
     }
   }
+
 
 
 

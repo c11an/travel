@@ -8,6 +8,12 @@ import 'package:travel/travel_note_page.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'travel_form_page.dart';
 import 'map_view_page.dart'; // ⭐️ 要新增的地圖顯示頁面
+import 'package:http/http.dart' as http; // 上傳後端需要
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
+final String backendBaseUrl =
+    dotenv.env['BACKEND_BASE_URL'] ?? 'https://default-url.com';
+final String userUid = dotenv.env['USER_UID'] ?? 'anonymous';
 
 
 class TravelDayPage extends StatefulWidget {
@@ -41,6 +47,7 @@ class TravelDayPage extends StatefulWidget {
   @override
   State<TravelDayPage> createState() => _TravelDayPageState();
 }
+
 
 class _TravelDayPageState extends State<TravelDayPage>
     with TickerProviderStateMixin {
@@ -341,42 +348,117 @@ class _TravelDayPageState extends State<TravelDayPage>
     );
   }
 
-  void _saveTrip() async {
+  // void _saveTrip() async {
+  //   if (_isSaving) return;
+  //   _isSaving = true;
+
+  //   final tripData = {
+  //     'trip_name': widget.tripName,
+  //     'start_date': DateFormat('yyyy-MM-dd').format(widget.startDate),
+  //     'end_date': DateFormat('yyyy-MM-dd').format(widget.endDate),
+  //     'budget': widget.budget,
+  //     'transport': widget.transport,
+  //     'daily_spots': dailySpots,
+  //     'daily_transports': dailyTransports,
+  //   };
+
+  //   final prefs = await SharedPreferences.getInstance();
+  //   List<String> tripList = prefs.getStringList('trip_list') ?? [];
+
+  //   tripList.removeWhere((tripStr) {
+  //     final decoded = jsonDecode(tripStr);
+  //     return decoded['trip_name'] == widget.tripName;
+  //   });
+
+  //   tripList.add(jsonEncode(tripData));
+  //   await prefs.setStringList('trip_list', tripList);
+
+  //   if (mounted) {
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       const SnackBar(content: Text('✅ 行程已儲存')),
+  //     );
+  //     Navigator.pop(context, tripData);
+  //   }
+
+  //   print("🔁 儲存觸發：${DateTime.now()}");
+
+  //   _isSaving = false;
+  // }
+
+  // ✅ CHANGED：先本機儲存，再推到後端，並做防重複提交
+
+  // ✅ NEW：呼叫後端 /sync_hfl_data，把行程推上去
+  Future<void> _pushToBackend() async {
+    final uri = Uri.parse('$backendBaseUrl/sync_hfl_data'); // 若你要改回 /hfl/update 這裡換掉
+    final payload = _buildUploadPayload();
+
+    final res = await http.post(
+      uri,
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode(payload),
+    );
+
+    if (res.statusCode < 200 || res.statusCode >= 300) {
+      debugPrint("❌ 後端錯誤: ${res.statusCode} ${res.body}");
+      throw Exception('後端回應 ${res.statusCode}');
+    }
+  }
+
+
+  Future<void> _saveTrip() async {
     if (_isSaving) return;
-    _isSaving = true;
+    setState(() => _isSaving = true);
 
-    final tripData = {
-      'trip_name': widget.tripName,
-      'start_date': DateFormat('yyyy-MM-dd').format(widget.startDate),
-      'end_date': DateFormat('yyyy-MM-dd').format(widget.endDate),
-      'budget': widget.budget,
-      'transport': widget.transport,
-      'daily_spots': dailySpots,
-      'daily_transports': dailyTransports,
-    };
+    try {
+      // 1) 本機儲存（沿用你原本的 trip_list 機制）
+      final tripData = {
+        'trip_name': widget.tripName,
+        'start_date': DateFormat('yyyy-MM-dd').format(widget.startDate),
+        'end_date': DateFormat('yyyy-MM-dd').format(widget.endDate),
+        'budget': widget.budget,
+        'transport': widget.transport,
+        'daily_spots': dailySpots,
+        'daily_transports': dailyTransports,
+        'mood': widget.mood,
+        'need': widget.need,
+      };
 
-    final prefs = await SharedPreferences.getInstance();
-    List<String> tripList = prefs.getStringList('trip_list') ?? [];
+      final prefs = await SharedPreferences.getInstance();
+      List<String> tripList = prefs.getStringList('trip_list') ?? [];
 
-    tripList.removeWhere((tripStr) {
-      final decoded = jsonDecode(tripStr);
-      return decoded['trip_name'] == widget.tripName;
-    });
+      // 移除同名舊行程，避免重覆
+      tripList.removeWhere((tripStr) {
+        final decoded = jsonDecode(tripStr);
+        return decoded['trip_name'] == widget.tripName;
+      });
 
-    tripList.add(jsonEncode(tripData));
-    await prefs.setStringList('trip_list', tripList);
+      tripList.add(jsonEncode(tripData));
+      await prefs.setStringList('trip_list', tripList);
 
-    if (mounted) {
+      // 2) 推到後端（只有在使用者按「儲存」時才上傳）
+      await _pushToBackend();
+
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('✅ 行程已儲存')),
+        const SnackBar(content: Text('✅ 行程已儲存並同步到後端')),
       );
+
+      // 回傳給上一頁（若需要）
       Navigator.pop(context, tripData);
+
+      
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('❌ 儲存或同步失敗：${e.toString()}')),
+      );
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
     }
 
-    print("🔁 儲存觸發：${DateTime.now()}");
-
-    _isSaving = false;
+    
   }
+
 
 
 
@@ -641,22 +723,28 @@ class _TravelDayPageState extends State<TravelDayPage>
         ],
       ),
       bottomNavigationBar: widget.readOnly
-      ? null
-      : Padding(
-          padding: const EdgeInsets.all(12),
-          child: SizedBox(
-            width: double.infinity,
-            height: 50,
-            child: ElevatedButton.icon(
-              onPressed: _saveTrip,
-              icon: const Icon(Icons.save),
-              label: const Text("儲存行程"),
-              style: ElevatedButton.styleFrom(
-                textStyle: const TextStyle(fontSize: 16),
+        ? null
+        : Padding(
+            padding: const EdgeInsets.all(12),
+            child: SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: ElevatedButton.icon(
+                onPressed: _isSaving ? null : _saveTrip,
+                icon: _isSaving
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.save),
+                label: Text(_isSaving ? "儲存中..." : "儲存行程"),
+                style: ElevatedButton.styleFrom(
+                  textStyle: const TextStyle(fontSize: 16),
+                ),
               ),
             ),
           ),
-        ),
     );
   }
 
@@ -701,7 +789,7 @@ class _TravelDayPageState extends State<TravelDayPage>
 
     debugPrint("📦 嘗試從 SharedPreferences 載入 notes_$tripName");
 
-    if (storedNotes != null) {
+    if (storedNotes != null && storedNotes.isNotEmpty && storedNotes != "[]") {
       try {
         final decodedNotes = (jsonDecode(storedNotes) as List)
             .map<List<Map<String, String>>>((day) =>
@@ -711,38 +799,22 @@ class _TravelDayPageState extends State<TravelDayPage>
         setState(() {
           dailySpots = decodedNotes;
 
+          // 若不足天數就補齊
           if (dailySpots.length < dayCount) {
             dailySpots += List.generate(dayCount - dailySpots.length, (_) => []);
           }
         });
+
+        debugPrint("✅ 成功載入 notes_$tripName，覆蓋 initialSpots");
       } catch (e) {
         debugPrint("❌ notes_$tripName 載入失敗：$e");
-        setState(() {
-          dailySpots = List.generate(dayCount, (_) => []);
-        });
       }
-
-      final decodedNotes = List<List<Map<String, String>>>.from(
-        jsonDecode(storedNotes).map(
-          (day) => List<Map<String, String>>.from(
-            day.map<Map<String, String>>((spot) => Map<String, String>.from(spot)),
-          ),
-        ),
-      );
-
-      setState(() {
-        dailySpots = decodedNotes;
-        if (dailySpots.length < dayCount) {
-          dailySpots += List.generate(dayCount - dailySpots.length, (_) => []);
-        }
-      });
+    } else {
+      debugPrint("ℹ️ 沒有有效的 notes_$tripName，保留 initialSpots");
     }
-
-    // if (storedNotes != null) {
-      
-
-    // }
   }
+
+
 
   Widget _buildSpotBlock(Map<String, String> spot, int dayIndex, {bool isFeedback = false}) {
     if (!spot.containsKey('Name')) {
@@ -1114,6 +1186,63 @@ class _TravelDayPageState extends State<TravelDayPage>
 
       return widgets;
     }
+
+    // ✅ NEW：把目前行程轉成可上傳的 JSON
+Map<String, dynamic> _buildUploadPayload() {
+  // 轉成 yyyy-MM-dd
+  final startDateStr = DateFormat('yyyy-MM-dd').format(widget.startDate);
+  final endDateStr = DateFormat('yyyy-MM-dd').format(widget.endDate);
+
+  // 把 dailySpots 轉成更乾淨的結構（保留你現有欄位）
+  final days = <Map<String, dynamic>>[];
+  for (int d = 0; d < dayCount; d++) {
+    final spots = (d < dailySpots.length) ? dailySpots[d] : <Map<String, String>>[];
+    days.add({
+      "index": d + 1,
+      "date": DateFormat('yyyy-MM-dd').format(widget.startDate.add(Duration(days: d))),
+      "spots": spots.map((s) => {
+        "Name": s["Name"] ?? "",
+        "Add": s["Add"] ?? "",
+        "Px": s["Px"] ?? "",
+        "Py": s["Py"] ?? "",
+        "Description": s["Description"] ?? (s["Toldescribe"] ?? ""),
+        "Time": s["Time"] ?? "08",
+        "Duration": s["Duration"] ?? "1",
+        "Raw": s["Raw"] ?? "",
+        "Picture1": s["Picture1"] ?? "",
+      }).toList(),
+      "transports": (d < dailyTransports.length) ? dailyTransports[d] : <String>[],
+    });
+  }
+
+
+
+  // 對齊你後端 sync_hfl_data 的鍵位（多的鍵後端會忽略也沒關係）
+  return {
+    "uid": userUid,
+    "model": "gpt",
+    "prompt": "save_trip_after_user_confirmed",
+    "city": null, // 若你有 city 可在這裡帶
+    "budget": widget.budget,
+    "transport": widget.transport,
+    "types": <String>[], // 若有旅遊類型就帶
+    "date_range": {"start": startDateStr, "end": endDateStr},
+    "parameters": {
+      "trip_name": widget.tripName,
+      "mood": widget.mood,
+      "need": widget.need,
+    },
+    "itinerary": {
+      "tripName": widget.tripName,
+      "startDate": startDateStr,
+      "endDate": endDateStr,
+      "budget": widget.budget,
+      "transport": widget.transport,
+      "days": days,
+    },
+  };
+}
+
 
 
 
