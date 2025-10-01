@@ -4,6 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:travel/travel_input_page.dart';
 import 'package:travel/travel_note_page.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'travel_form_page.dart';
@@ -389,9 +390,8 @@ class _TravelDayPageState extends State<TravelDayPage>
 
   // ✅ NEW：呼叫後端 /sync_hfl_data，把行程推上去
   Future<void> _pushToBackend() async {
-    final uri = Uri.parse('$backendBaseUrl/sync_hfl_data'); // 若你要改回 /hfl/update 這裡換掉
+    final uri = Uri.parse('$backendBaseUrl/hfl/update');
     final payload = _buildUploadPayload();
-
     final res = await http.post(
       uri,
       headers: {"Content-Type": "application/json"},
@@ -444,7 +444,9 @@ class _TravelDayPageState extends State<TravelDayPage>
       );
 
       // 回傳給上一頁（若需要）
-      Navigator.pop(context, tripData);
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const TravelInputPage()),
+      );
 
       
     } catch (e) {
