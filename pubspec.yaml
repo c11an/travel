@@ -104,6 +104,9 @@ flutter:
     - assets/images/app_icon.png
     - assets/images/search.png
     - assets/images/destination.png
+    - assets/images/AI.png
+    - assets/images/journey-1.png
+    - assets/images/person.png
     - assets/data/景點.csv
     - assets/data/步道.csv
     - assets/data/自行車道.csv

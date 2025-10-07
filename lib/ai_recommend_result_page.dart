@@ -134,7 +134,7 @@ class _AIRecommendResultPageState extends State<AIRecommendResultPage> {
           currentTime = line;
         } else if (line.startsWith('景點：') && currentDay >= 0 && currentTime != null) {
           final name = line.replaceFirst('景點：', '').trim();
-          dayMap[currentDay]?.add({'time': currentTime!, 'name': name});
+          dayMap[currentDay]?.add({'time': currentTime, 'name': name});
         }
       }
 

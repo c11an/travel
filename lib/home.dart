@@ -79,7 +79,7 @@ class HomePage extends StatelessWidget {
                           ),
                           _SquareButton(
                             label: '日誌',
-                            icon: Icons.book_outlined,
+                            imageAsset: 'assets/images/journey-1.png',
                             onTap: () => Navigator.push(
                               context,
                               MaterialPageRoute(builder: (_) => const JournalPage()),
@@ -88,7 +88,7 @@ class HomePage extends StatelessWidget {
                           ),
                           _SquareButton(
                             label: '個人',
-                            icon: Icons.person_outline,
+                            imageAsset: 'assets/images/person.png',
                             onTap: () => Navigator.push(
                               context,
                               MaterialPageRoute(builder: (_) => const ProfilePage()),
@@ -124,26 +124,25 @@ class _AiRecommendPill extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
         decoration: BoxDecoration(
-          color: _pillBlue,
           borderRadius: BorderRadius.circular(999),
           boxShadow: const [
             BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(2, 4)),
           ],
         ),
-        child: const Text(
-          'AI 推薦',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.w800,
-            color: _royalBlue,
-            letterSpacing: 1.2,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(999), // 圓角按鈕
+          child: Image.asset(
+            'assets/images/AI.png',
+            width: 120,     // 可自行調整大小
+            height: 120,
+            fit: BoxFit.cover,
           ),
         ),
       ),
     );
   }
+
 }
 
 class _SquareButton extends StatelessWidget {
@@ -152,8 +151,8 @@ class _SquareButton extends StatelessWidget {
     required this.onTap,
     required this.size,
     this.icon,              // 可選
-    this.imageAsset,        // 可選
-    this.iconColor = const Color(0xFF4F46E5), // ✅ 給預設色（或 Colors.blue）
+    this.imageAsset, // ✅ 給預設色（或 Colors.blue）
+    this.iconColor = Colors.white,
   });
 
   final String label;
