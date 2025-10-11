@@ -144,15 +144,14 @@ class _AiRecommendPill extends StatelessWidget {
   }
 
 }
-
 class _SquareButton extends StatelessWidget {
   const _SquareButton({
     required this.label,
     required this.onTap,
     required this.size,
-    this.icon,              // 可選
-    this.imageAsset, // ✅ 給預設色（或 Colors.blue）
-    this.iconColor = Colors.white,
+    this.imageAsset,
+    this.icon,
+    this.iconColor = Colors.blue, // ✅ 給預設值就不報錯
   });
 
   final String label;
@@ -160,7 +159,8 @@ class _SquareButton extends StatelessWidget {
   final double size;
   final IconData? icon;
   final String? imageAsset;
-  final Color iconColor; // ✅ 不再報錯（一定有值）
+  final Color iconColor; // ✅ 有預設值 → 不需 required
+
   @override
   Widget build(BuildContext context) {
     final double iconSize = size * 0.35;
@@ -207,4 +207,5 @@ class _SquareButton extends StatelessWidget {
     );
   }
 }
+
 

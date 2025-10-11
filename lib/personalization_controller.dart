@@ -22,6 +22,12 @@ class PersonalizationController {
       final m = jsonDecode(s) as Map<String, dynamic>;
       _model.load(m);
     }
+    if (s != null) {
+      dev.log('📂 [Init] 已載入模型: ${_model.w.take(3).toList()} ...', name: 'Personalization');
+    } else {
+      dev.log('📂 [Init] 沒有舊模型，初始化新權重', name: 'Personalization');
+    }
+
   }
 
   List<Map<String, String>> reRankCandidates(
@@ -137,4 +143,30 @@ class PersonalizationController {
       throw Exception('HFL 上傳失敗：$e');
     }
   }
+
+    /// 🧠 本地訓練（不上傳）版本，手動觸發訓練並印出 log
+  Future<void> trainLocalOnly({int epochs = 5, double lr = 0.05}) async {
+    if (_buffer.isEmpty) {
+      dev.log('⚠️ [LocalTrain] buffer 為空，無需訓練', name: 'Personalization');
+      return;
+    }
+
+    // 🧾 log buffer 狀態
+    dev.log('🚀 [LocalTrain] start: data=${_buffer.length}, epochs=$epochs, lr=$lr',
+        name: 'Personalization');
+
+    // ✅ 本地訓練
+    _model.train(_buffer, epochs: epochs, lr: lr);
+
+    // 清除暫存 buffer
+    _buffer.clear();
+
+    // 🧠 儲存模型到 SharedPreferences
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_kModelKey, jsonEncode(_model.toJson()));
+
+    // ✅ 結束 log
+    dev.log('✅ [LocalTrain] end: 已完成訓練並儲存至本機', name: 'Personalization');
+  }
+
 }

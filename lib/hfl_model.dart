@@ -9,6 +9,7 @@ class Example {
 }
 
 class LRModel {
+  
   LRModel(int dim)
       : w = List.filled(dim, 0.0),
         b = 0.0;
@@ -28,6 +29,7 @@ class LRModel {
 
   /// ✅ 加上詳細訓練過程輸出（可看到 Loss 是否收斂）
   void train(List<Example> data, {int epochs = 5, double lr = 0.05}) {
+    debugPrint('🚀 [LRModel] start train: n=${data.length}, epochs=$epochs, lr=$lr');
     if (data.isEmpty) {
       debugPrint("⚠️ [LRModel] 無訓練資料，跳過訓練。");
       return;

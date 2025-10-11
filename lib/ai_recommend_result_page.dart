@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -91,7 +90,7 @@ class _AIRecommendResultPageState extends State<AIRecommendResultPage> {
   
 
   void _convertGptToTravelPage() async {
-    print("📊 allSpots.first 內容: ${widget.allSpots.isNotEmpty ? widget.allSpots.first : '空的'}");
+    debugPrint("📊 allSpots.first 內容: ${widget.allSpots.isNotEmpty ? widget.allSpots.first : '空的'}");
     final Map<int, List<Map<String, String>>> dayMap = {};
     List<List<Map<String, String>>> matchedSpots = [];
 
@@ -142,7 +141,7 @@ class _AIRecommendResultPageState extends State<AIRecommendResultPage> {
         throw Exception('GPT 行程內容無法解析成天數結構');
       }
 
-      // 📅 建立每天的清單長度：優先尊重使用者天數；若未指定則以 GPT 解析到的最大天數決定
+      // 📅 建立每天的清單長度
       final gptMaxDay = dayMap.keys.reduce(max) + 1; // day index 0-based → +1
       final userDays = hasUserEndDate
           ? widget.endDate!.difference(widget.startDate!).inDays + 1
@@ -181,7 +180,7 @@ class _AIRecommendResultPageState extends State<AIRecommendResultPage> {
               if (startHour != null && endHour != null && endHour > startHour) {
                 bestSpot['Time'] = startHour.toString().padLeft(2, '0');
                 bestSpot['Duration'] = (endHour - startHour).toString();
-                print("Day $dayIndex >> ${bestSpot['Name']} at ${bestSpot['Time']} for ${bestSpot['Duration']}h");
+                debugPrint("Day $dayIndex >> ${bestSpot['Name']} at ${bestSpot['Time']} for ${bestSpot['Duration']}h");
               } else {
                 // 無效時段 → 給預設
                 bestSpot['Time'] = '08';
@@ -190,7 +189,7 @@ class _AIRecommendResultPageState extends State<AIRecommendResultPage> {
             }
             matchedSpots[dayIndex].add(bestSpot);
           } else {
-            print('❓ 找不到對應景點：$gptName');
+            debugPrint('❓ 找不到對應景點：$gptName');
           }
         }
       }
@@ -234,8 +233,15 @@ class _AIRecommendResultPageState extends State<AIRecommendResultPage> {
       for (final s in negative) {
         p.feedbackNegative(s, budget: budget, typesPrefer: prefers);
       }
-      // ❌ 不要上傳：拿掉 maybeTrainAndUpload
-      // await p.maybeTrainAndUpload(api: api, uid: _uid ?? 'local');
+
+      // 🆕 立刻在本地訓練，並輸出明確的訓練 log（不打網路）
+      try {
+        debugPrint('🧪 call trainLocalOnly...');
+        await p.trainLocalOnly(); // 這裡會觸發 LRModel.train() 內的 🚀/✅ log
+        debugPrint('🏁 trainLocalOnly finished');
+      } catch (e) {
+        debugPrint('⚠️ trainLocalOnly 發生錯誤：$e');
+      }
 
       // 🚀 跳轉頁面（只帶資料，不上傳）
       final DateTime finalEndDate = hasUserEndDate
@@ -258,13 +264,12 @@ class _AIRecommendResultPageState extends State<AIRecommendResultPage> {
           ),
         ),
       ).then((result) async {
-        // 這裡不處理上傳；真正的上傳已經移到 TravelDayPage 的「儲存」按鈕
-        // 你若想在返回時刷新上一頁 UI，可在這裡做 setState 或 showSnackBar。
+        // 不上傳；真正的上傳在 TravelDayPage 的「儲存」按鈕
       });
 
     } catch (e, stackTrace) {
-      print('❌ 解析或建立行程失敗：$e');
-      print(stackTrace);
+      debugPrint('❌ 解析或建立行程失敗：$e');
+      debugPrint(stackTrace.toString());
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
@@ -275,6 +280,7 @@ class _AIRecommendResultPageState extends State<AIRecommendResultPage> {
       );
     }
   }
+
 
 
 
