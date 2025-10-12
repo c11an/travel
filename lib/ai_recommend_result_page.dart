@@ -238,6 +238,7 @@ class _AIRecommendResultPageState extends State<AIRecommendResultPage> {
       try {
         debugPrint('🧪 call trainLocalOnly...');
         await p.trainLocalOnly(); // 這裡會觸發 LRModel.train() 內的 🚀/✅ log
+        await p.maybeTrainAndUpload(api: api, uid: _uid ?? 'local', round: 1);
         debugPrint('🏁 trainLocalOnly finished');
       } catch (e) {
         debugPrint('⚠️ trainLocalOnly 發生錯誤：$e');
@@ -261,6 +262,7 @@ class _AIRecommendResultPageState extends State<AIRecommendResultPage> {
             readOnly: false,
             mood: widget.mood,
             need: widget.need,
+            fromAiResult: true,     
           ),
         ),
       ).then((result) async {
@@ -367,12 +369,12 @@ class _AIRecommendResultPageState extends State<AIRecommendResultPage> {
               children: [
                 Expanded(
                   child: ElevatedButton.icon(
-                    onPressed: _convertGptToTravelPage,
+                    onPressed: _convertGptToTravelPage,                    
                     icon: const Icon(Icons.calendar_month),
                     label: const Text('查看AI推薦行程'),
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 14),
-                    ),
+                    ),      
                   ),
                 ),
                 const SizedBox(width: 16),

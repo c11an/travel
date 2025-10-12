@@ -151,7 +151,7 @@ class _SquareButton extends StatelessWidget {
     required this.size,
     this.imageAsset,
     this.icon,
-    this.iconColor = Colors.blue, // ✅ 給預設值就不報錯
+    this.iconColor = Colors.black87, // ✅ 預設值（不會報錯）
   });
 
   final String label;
@@ -159,7 +159,7 @@ class _SquareButton extends StatelessWidget {
   final double size;
   final IconData? icon;
   final String? imageAsset;
-  final Color iconColor; // ✅ 有預設值 → 不需 required
+  final Color iconColor; // ✅ 有預設值就不會報錯
 
   @override
   Widget build(BuildContext context) {
@@ -207,5 +207,6 @@ class _SquareButton extends StatelessWidget {
     );
   }
 }
+
 
 

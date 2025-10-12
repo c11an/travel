@@ -4,6 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:travel/home.dart';
 import 'package:travel/travel_input_page.dart';
 import 'package:travel/travel_note_page.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -30,6 +31,7 @@ class TravelDayPage extends StatefulWidget {
   final List<List<Map<String, String>>>? initialSpots;
   final List<List<String>>? initialTransports;
   final bool readOnly;
+  final bool fromAiResult; // ← 新增：是否由 AI 推薦結果頁進來
 
   TravelDayPage({
     super.key,
@@ -43,6 +45,7 @@ class TravelDayPage extends StatefulWidget {
     this.readOnly = false,
     this.mood,
     this.need,
+    this.fromAiResult = false, // 預設 false，不影響其他入口
   });
 
   @override
@@ -509,246 +512,257 @@ class _TravelDayPageState extends State<TravelDayPage>
     final tripDuration =
         '${DateFormat('yyyy/MM/dd').format(widget.startDate)} ~ ${DateFormat('yyyy/MM/dd').format(widget.endDate)}';
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('🛢️ ${widget.tripName}'),
-        bottom: TabBar(
-          controller: _tabController,
-          isScrollable: true,
-          onTap: (index) {
-            setState(() {
-              _currentDayIndex = index;
-            });
-          },
-          tabs: List.generate(dayCount, (i) => Tab(text: 'Day ${i + 1}')),
-        ),
-//         actions: [
-//           if (widget.readOnly)
-//             IconButton(
-//               onPressed: () => _showNotesAllDays(viewOnly: true)
-// ,
-//               icon: const Icon(Icons.notes),
-//               tooltip: "查看心得",
-//             ),
-//         ],
-      ),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: double.infinity,
-            color: Colors.blue.shade50,
-            padding: const EdgeInsets.all(12),
-            child: Text(
-              '旅遊期間：$tripDuration',
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
+    // 若是從 AI 推薦結果頁進來，禁止系統返回（Android 實體返回鍵）
+    return WillPopScope(
+      onWillPop: () async => !widget.fromAiResult,
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text('🛢️ ${widget.tripName}'),
+
+          // fromAiResult 時把左上角返回鍵拿掉
+          automaticallyImplyLeading: !widget.fromAiResult,
+
+          bottom: TabBar(
+            controller: _tabController,
+            isScrollable: true,
+            onTap: (index) {
+              setState(() {
+                _currentDayIndex = index;
+              });
+            },
+            tabs: List.generate(dayCount, (i) => Tab(text: 'Day ${i + 1}')),
           ),
-          Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: List.generate(dayCount, (dayIndex) {
-                final spots = dayIndex < dailySpots.length ? dailySpots[dayIndex] : [];
 
-                print("🌀 當前 Tab：Day ${dayIndex + 1}");
-                print("📦 dailySpots.length = ${dailySpots.length}");
-                print("📦 spots = $spots");
-                print("🧭 Day $dayIndex 的 spots 數量為 ${spots.length}");
+          // 右上角 Home（只在 fromAiResult 時出現）
+          actions: [
+            if (widget.fromAiResult)
+              IconButton(
+                icon: const Icon(Icons.home_outlined),
+                tooltip: '回首頁',
+                onPressed: () {
+                  // 回首頁並清空路由堆疊
+                  // 如果你有命名路由（如 '/home' 或 '/'），可以改用 pushNamedAndRemoveUntil
+                  Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute(builder: (_) => const HomePage()),
+                    (route) => false,
+                  );
+                },
+              ),
+          ],
+        ),
 
+        body: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: double.infinity,
+              color: Colors.blue.shade50,
+              padding: const EdgeInsets.all(12),
+              child: Text(
+                '旅遊期間：$tripDuration',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+            Expanded(
+              child: TabBarView(
+                controller: _tabController,
+                children: List.generate(dayCount, (dayIndex) {
+                  final spots = dayIndex < dailySpots.length ? dailySpots[dayIndex] : [];
 
-                if (spots.isEmpty) {
-                  print("⚠️ 當日無景點！");
-                } else {
-                  for (var spot in spots) {
-                    print("👀 顯示景點：${spot['Name']}，開始時間：${spot['Time']}，停留時間：${spot['Duration']} 小時");
+                  print("🌀 當前 Tab：Day ${dayIndex + 1}");
+                  print("📦 dailySpots.length = ${dailySpots.length}");
+                  print("📦 spots = $spots");
+                  print("🧭 Day $dayIndex 的 spots 數量為 ${spots.length}");
+
+                  if (spots.isEmpty) {
+                    print("⚠️ 當日無景點！");
+                  } else {
+                    for (var spot in spots) {
+                      print("👀 顯示景點：${spot['Name']}，開始時間：${spot['Time']}，停留時間：${spot['Duration']} 小時");
+                    }
                   }
-                }
 
-                return Column(
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      child: Row(
-                        children: [
-                          if (!widget.readOnly)
+                  return Column(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        child: Row(
+                          children: [
+                            if (!widget.readOnly)
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  onPressed: () => _exploreAndAddSpots(dayIndex),
+                                  icon: const Icon(Icons.add_location_alt),
+                                  label: const Text("探索新增景點"),
+                                ),
+                              ),
+                            if (!widget.readOnly) const SizedBox(width: 12),
                             Expanded(
                               child: ElevatedButton.icon(
-                                onPressed: () => _exploreAndAddSpots(dayIndex),
-                                icon: const Icon(Icons.add_location_alt),
-                                label: const Text("探索新增景點"),
+                                onPressed: () => _showMap(dayIndex),
+                                icon: const Icon(Icons.map),
+                                label: const Text("在地圖查看"),
                               ),
                             ),
-                          if (!widget.readOnly) const SizedBox(width: 12),
-                          Expanded(
-                            child: ElevatedButton.icon(
-                              onPressed: () => _showMap(dayIndex),
-                              icon: const Icon(Icons.map),
-                              label: const Text("在地圖查看"),
-                            ),
-                          ),
-                          if (!widget.readOnly) const SizedBox(width: 12),
-                          
-                          if (widget.readOnly)
-                            IconButton(
-                              onPressed: () => _showNotesAllDays(viewOnly: true),
-                              icon: const Icon(Icons.notes),
-                              tooltip: "查看心得",
-                            ),
-                        ],
+                            if (!widget.readOnly) const SizedBox(width: 12),
+
+                            if (widget.readOnly)
+                              IconButton(
+                                onPressed: () => _showNotesAllDays(viewOnly: true),
+                                icon: const Icon(Icons.notes),
+                                tooltip: "查看心得",
+                              ),
+                          ],
+                        ),
                       ),
-                    ),
-                    Expanded(
-                      child: LayoutBuilder(
-                        builder: (context, constraints) {
-                          print("🧩 LayoutBuilder 收到 spots: $spots");
+                      Expanded(
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            print("🧩 LayoutBuilder 收到 spots: $spots");
 
-                          final maxEndTime = spots.map((spot) {
-                            final start = int.tryParse(spot['Time'] ?? '0') ?? 0;
-                            final duration = int.tryParse(spot['Duration'] ?? '1') ?? 1;
-                            return start + duration;
-                          }).fold<int>(0, (prev, end) => end > prev ? end : prev);
+                            final maxEndTime = spots.map((spot) {
+                              final start = int.tryParse(spot['Time'] ?? '0') ?? 0;
+                              final duration = int.tryParse(spot['Duration'] ?? '1') ?? 1;
+                              return start + duration;
+                            }).fold<int>(0, (prev, end) => end > prev ? end : prev);
 
-                          final totalHeight = (maxEndTime * blockHeight + blockHeight).clamp(600.0, blockHeight * 24);
+                            final totalHeight = (maxEndTime * blockHeight + blockHeight).clamp(600.0, blockHeight * 24);
 
+                            return SingleChildScrollView(
+                              controller: _scrollControllers[dayIndex],
+                              scrollDirection: Axis.vertical,
+                              child: ConstrainedBox(
+                                constraints: BoxConstraints(minHeight: blockHeight * 24),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    // ⏰ 時間欄
+                                    Column(
+                                      children: List.generate(24, (i) {
+                                        final hour = i.toString().padLeft(2, '0');
+                                        return SizedBox(
+                                          height: blockHeight,
+                                          width: 80,
+                                          child: Center(
+                                            child: Text('$hour:00'),
+                                          ),
+                                        );
+                                      }),
+                                    ),
+                                    const SizedBox(width: 12),
 
-                          return SingleChildScrollView(
-                            controller: _scrollControllers[dayIndex],
-                            scrollDirection: Axis.vertical,
-                            child: ConstrainedBox(
-                              constraints: BoxConstraints(minHeight: blockHeight * 24),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  // ⏰ 時間欄
-                                  Column(
-                                    children: List.generate(24, (i) {
-                                      final hour = i.toString().padLeft(2, '0');
-                                      return SizedBox(
-                                        height: blockHeight,
-                                        width: 80,
-                                        child: Center(
-                                          child: Text('$hour:00'),
-                                        ),
-                                      );
-                                    }),
-                                  ),
-                                  const SizedBox(width: 12),
+                                    // 🗺️ 景點與距離圖層
+                                    SizedBox(
+                                      width: max(constraints.maxWidth - 92, 200),
+                                      height: blockHeight * 24,
+                                      child: Stack(
+                                        children: [
+                                          // 背景格與距離提示
+                                          ...List.generate(24, (i) {
+                                            final transports = dayIndex < dailyTransports.length
+                                                ? dailyTransports[dayIndex]
+                                                : [];
+                                            final currentIndex = dailySpots[dayIndex].indexWhere(
+                                                (s) => int.tryParse(s['Time'] ?? '') == i);
+                                            final hasTransport = currentIndex != -1 && currentIndex < transports.length;
 
-                                  // 🗺️ 景點與距離圖層
-                                  SizedBox(
-                                    width: max(constraints.maxWidth - 92, 200),
-                                    height: blockHeight * 24,
-                                    child: Stack(
-                                      children: [
-                                        // 背景格與距離提示
-                                        ...List.generate(24, (i) {
-                                          final transports = dayIndex < dailyTransports.length
-                                              ? dailyTransports[dayIndex]
-                                              : [];
-                                          final currentIndex = dailySpots[dayIndex].indexWhere(
-                                              (s) => int.tryParse(s['Time'] ?? '') == i);
-                                          final hasTransport = currentIndex != -1 && currentIndex < transports.length;
-
-                                          return Stack(
-                                            children: [
-                                              // 🔲 景點主格線區塊
-                                              Positioned(
-                                                top: i * blockHeight,
-                                                left: 0,
-                                                right: 0,
-                                                height: hourBlockHeight,
-                                                child: Container(
-                                                  decoration: BoxDecoration(
-                                                    border: Border(
-                                                      top: BorderSide(color: Colors.grey.shade300),
+                                            return Stack(
+                                              children: [
+                                                // 🔲 景點主格線區塊
+                                                Positioned(
+                                                  top: i * blockHeight,
+                                                  left: 0,
+                                                  right: 0,
+                                                  height: hourBlockHeight,
+                                                  child: Container(
+                                                    decoration: BoxDecoration(
+                                                      border: Border(
+                                                        top: BorderSide(color: Colors.grey.shade300),
+                                                      ),
                                                     ),
                                                   ),
                                                 ),
-                                              ),
-                                              // 🚗 移動距離提示
-                                              Positioned(
-                                                top: i * blockHeight + hourBlockHeight,
-                                                left: 0,
-                                                right: 0,
-                                                height: distanceBlockHeight,
-                                                child: hasTransport
-                                                    ? Center(
-                                                        child: Text(
-                                                          transports[currentIndex],
-                                                          style: TextStyle(
-                                                            fontSize: 12,
-                                                            fontWeight: FontWeight.w500,
-                                                            color: transports[currentIndex].contains('步行')
-                                                                ? Colors.green
-                                                                : transports[currentIndex].contains('機車')
-                                                                    ? Colors.orange
-                                                                    : Colors.blue,
+                                                // 🚗 移動距離提示
+                                                Positioned(
+                                                  top: i * blockHeight + hourBlockHeight,
+                                                  left: 0,
+                                                  right: 0,
+                                                  height: distanceBlockHeight,
+                                                  child: hasTransport
+                                                      ? Center(
+                                                          child: Text(
+                                                            transports[currentIndex],
+                                                            style: TextStyle(
+                                                              fontSize: 12,
+                                                              fontWeight: FontWeight.w500,
+                                                              color: transports[currentIndex].contains('步行')
+                                                                  ? Colors.green
+                                                                  : transports[currentIndex].contains('機車')
+                                                                      ? Colors.orange
+                                                                      : Colors.blue,
+                                                            ),
+                                                            overflow: TextOverflow.ellipsis,
                                                           ),
-                                                          overflow: TextOverflow.ellipsis,
-                                                        ),
-                                                      )
-                                                    : const SizedBox.shrink(),
-                                              ),
-                                            ],
-                                          );
-                                        }),
+                                                        )
+                                                      : const SizedBox.shrink(),
+                                                ),
+                                              ],
+                                            );
+                                          }),
 
-                                        // 📥 拖曳目標區
-                                        _buildDropTargets(dayIndex),
+                                          // 📥 拖曳目標區
+                                          _buildDropTargets(dayIndex),
 
-                                        // 📦 景點方塊與距離提示插入邏輯
-                                        ..._buildSpotAndTransportBlocks(
-                                          List<Map<String, String>>.from(spots),
-                                          dayIndex,
-                                        ),
-                                      ],
+                                          // 📦 景點方塊與距離提示插入邏輯
+                                          ..._buildSpotAndTransportBlocks(
+                                            List<Map<String, String>>.from(spots),
+                                            dayIndex,
+                                          ),
+                                        ],
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
-                            ),
-                          );
-
-
-
-                        },
+                            );
+                          },
+                        ),
                       ),
-
-                    ),
-
-
-                  ],
-                );
-              }),
-            ),
-          ),
-        ],
-      ),
-      bottomNavigationBar: widget.readOnly
-        ? null
-        : Padding(
-            padding: const EdgeInsets.all(12),
-            child: SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton.icon(
-                onPressed: _isSaving ? null : _saveTrip,
-                icon: _isSaving
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.save),
-                label: Text(_isSaving ? "儲存中..." : "儲存行程"),
-                style: ElevatedButton.styleFrom(
-                  textStyle: const TextStyle(fontSize: 16),
-                ),
+                    ],
+                  );
+                }),
               ),
             ),
-          ),
+          ],
+        ),
+
+        bottomNavigationBar: widget.readOnly
+            ? null
+            : Padding(
+                padding: const EdgeInsets.all(12),
+                child: SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: ElevatedButton.icon(
+                    onPressed: _isSaving ? null : _saveTrip,
+                    icon: _isSaving
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.save),
+                    label: Text(_isSaving ? "儲存中..." : "儲存行程"),
+                    style: ElevatedButton.styleFrom(
+                      textStyle: const TextStyle(fontSize: 16),
+                    ),
+                  ),
+                ),
+              ),
+      ),
     );
   }
+
 
 
 

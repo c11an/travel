@@ -7,7 +7,8 @@ import 'api.dart';
 import 'hfl_client.dart';
 
 const _kModelKey = 'hfl_model_lr_v1';
-const _kTrainBatchSize = 20; // 收集幾筆回饋就訓練+上傳
+//const _kTrainBatchSize = 20; // 收集幾筆回饋就訓練+上傳
+const _kTrainBatchSize = 1;
 
 class PersonalizationController {
   PersonalizationController() : _model = LRModel(FeatureBuilder.dim);
