@@ -28,39 +28,49 @@ class OpenAIService {
         print("❌ 無法讀取 API 金鑰（OPENAI_API_KEY）");
         return "❌ 找不到 API 金鑰，請確認 .env 與 main.dart 已載入。";
       }
-      // 可選：把 dotenv 讀到的 key 回寫到 SecureStorage，之後就算沒載到 .env 也能用
       await _storage.write(key: 'OPENAI_API_KEY', value: apiKey);
 
       const endpoint = 'https://api.openai.com/v1/chat/completions';
 
-      final response = await http
-        .post(
-          Uri.parse(endpoint),
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer $apiKey',
+      final body = jsonEncode({
+        "model": "gpt-3.5-turbo", // 若你有 gpt-4o-mini，可改成 "gpt-4o-mini"
+        "messages": [
+          {
+            "role": "system",
+            "content":
+                "你是專業的台灣旅遊行程規劃師。嚴格依照提供的白名單安排行程，禁止創造白名單以外的景點或餐廳。若白名單不足，請減少每天景點數量，不得編造或替換。輸出必須完全符合使用者要求的格式（Day n、時間區間、'景點：'前綴）。"
           },
-          body: jsonEncode({
-            "model": "gpt-3.5-turbo",
-            "messages": [
-              {"role": "system", "content": "你是一位專業的台灣旅遊行程規劃師，只能根據提供的景點清單安排行程，禁止產生清單以外的景點。"},
-              {"role": "user", "content": _generatePrompt(
-                  city: city,
-                  types: types,
-                  budget: budget,
-                  transport: transport,
-                  startDate: startDate,
-                  endDate: endDate,
-                  availableSpots: availableSpots,
-                )
-              }
-            ],
-            "max_tokens": 1000,
-            "temperature": 0.7,
-          }),
-        )
-        .timeout(const Duration(seconds: 60));
+          {
+            "role": "user",
+            "content": _generatePrompt(
+              city: city,
+              types: types,
+              budget: budget,
+              transport: transport,
+              startDate: startDate,
+              endDate: endDate,
+              availableSpots: availableSpots,
+              mood: mood,
+              need: need,
+            )
+          }
+        ],
+        "max_tokens": 1100,
+        "temperature": 0.3,         // 更一致、較不亂
+        "presence_penalty": 0.0,
+        "frequency_penalty": 0.0,
+      });
 
+      final response = await http
+          .post(
+            Uri.parse(endpoint),
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $apiKey',
+            },
+            body: body,
+          )
+          .timeout(const Duration(seconds: 60));
 
       print("📡 GPT 回傳狀態碼：${response.statusCode}");
 
@@ -83,6 +93,7 @@ class OpenAIService {
     }
   }
 
+
   String _generatePrompt({
     required String city,
     required List<String> types,
@@ -100,74 +111,77 @@ class OpenAIService {
 
     final firstDayStr = startDate != null
         ? DateFormat('yyyy/MM/dd').format(startDate)
-        : "2025/07/01"; // 預設日期
+        : "2025/07/01";
 
-    final typesList = types.isNotEmpty ? types.join(", ") : "不拘";
+    // day count（用來提醒每天數量；實際輸出仍由模型排程）
+    int dayCount = 1;
+    if (startDate != null && endDate != null) {
+      dayCount = endDate!.difference(startDate!).inDays + 1;
+      if (dayCount < 1) dayCount = 1;
+    }
 
-    final scenicSpots = availableSpots
+    final typesLine = types.isNotEmpty ? types.join("、") : "不拘";
+
+    // 白名單：只提供名稱，減少 tokens。各自限制長度。
+    final scenicNames = availableSpots
         .where((s) => s['Type'] == '景點')
-        .map((s) =>
-            "【${s['Name']}】（${s['Category'] ?? '未知類型'}，${s['Region'] ?? '未知地區'}）")
-        .where((n) => n.trim().isNotEmpty)
+        .map((s) => (s['Name'] ?? '').trim())
+        .where((n) => n.isNotEmpty)
         .toSet()
-        .take(100)
+        .take(60)
         .toList();
 
-    final foodSpots = availableSpots
+    final foodNames = availableSpots
         .where((s) => s['Type'] == '美食')
-        .map((s) =>
-            "【${s['Name']}】（美食，${s['Region'] ?? '未知地區'}）")
-        .where((n) => n.trim().isNotEmpty)
+        .map((s) => (s['Name'] ?? '').trim())
+        .where((n) => n.isNotEmpty)
         .toSet()
-        .take(50)
+        .take(40)
         .toList();
 
-    final joinedSpots = [...scenicSpots, ...foodSpots].join("、");
+    final scenicList = scenicNames.join("、");
+    final foodList = foodNames.join("、");
+    // ✅ 避免清單為空，給 GPT 明確提示「無」不要編造
+    final scenicLine = scenicList.isEmpty ? "（無）" : scenicList;
+    final foodLine   = foodList.isEmpty   ? "（無）" : foodList;
+
+
+    // 預算：你前端是整體金額，我們給模型一個指引；若要更嚴格，可以把前端做成 tier 再加描述
+    final budgetGuide = "整體每日人均預算約 NT\$${budget.toInt()}，請盡量安排符合此預算的景點與餐食（如門票、餐費）。";
 
     return """
-  我正在規劃一趟台灣的旅遊行程，地點為：$city，旅遊日期：$dateInfo。
-  每日預算為每人 NT\$${budget.toInt()} 元，使用交通方式：$transport。
-  我偏好的旅遊類型有：$typesList。
+  我正在規劃 $city 的旅遊行程，旅遊日期：$dateInfo（共 $dayCount 天）。
+  交通方式：$transport。偏好旅遊類型：$typesLine。心情：「$mood」。需求：「$need」。
+  $budgetGuide
 
-  目前心情：「$mood」，這次旅行我希望：「$need」。
+  【白名單（只能使用以下名稱；不足就少排，不得編造新名稱）】
+  - 景點清單：$scenicLine
+  - 美食清單：$foodLine
 
-  ⚠️ 請特別注意以下需求：
-  - 若提到「不想曬太陽」，請避免安排炎熱或缺乏遮蔭的戶外景點。
-  - 若提到「不想人擠人」，請避開熱門地點，改安排冷門、安靜的地方。
-  - 若提到「想放鬆」或「壓力大」，請安排節奏緩慢、寧靜的景點。
+  【排程原則】
+  - 嚴格只從白名單挑選景點/餐廳；若白名單不足，請減少每天景點數量，不要創造白名單外的名稱。
+  - 優先符合「$typesLine」與預算；動線合理，避免遠距離來回。
+  - 若某類白名單為空（標示「（無）」），請略過該類型，不要創造名稱以補足。
+  - 每天建議安排 2~4 個景點，並盡量包含中餐與晚餐（從美食清單挑）。
+  - 若使用者提到「不想曬太陽」請避免炎熱、無遮蔭的戶外；「不想人擠人」請避開熱門、改冷門放鬆點；「想放鬆/壓力大」請節奏緩慢、寧靜。
 
-  ✅ 以下是可選地點（**只能從這些景點與美食中安排**）：
-  $joinedSpots
-
-  📌 安排行程時，請**每天規劃從上午 9:00 到晚上 7:00 的完整旅遊行程**，包含：
-  - 景點參訪與活動
-  - 餐食安排（建議每日安排中餐與晚餐各一間「美食」地點）
-  - 交通方式（捷運、公車、走路等）
-  - 景點順序要合理，避免跳點與長距離來回移動
-
-  📋 請使用以下格式回覆，**不要加任何說明文字**：
-
+  【輸出格式（務必嚴格遵守；不要加多餘說明文字）】
   Day 1（$firstDayStr）：
-  09:00 ~ 10:00  
-  景點：xx公園  
-  活動：散步、欣賞風景  
-  交通：捷運到達
+  09:00 ~ 10:30
+  景點：XXXX
 
-  10:00 ~ 12:00  
-  景點：某某老街  
-  活動：逛街購物  
-  交通：步行
+  10:45 ~ 12:00
+  景點：YYYY
 
-  12:00 ~ 13:00  
-  景點：老王牛肉麵（美食）  
-  活動：午餐  
-  交通：步行
+  12:00 ~ 13:00
+  景點：ZZZZ（美食）
 
-  ...
+  （之後依此格式繼續到 Day $dayCount。每段必須先時間區間，下一行以「景點：」開頭，名稱必須出自白名單）
+    每個區塊必須連續三行：時間區間、下一行以「景點：」開頭的名稱；不要插入額外空行或描述。
 
-  請根據日期逐日列出完整時段行程，確保內容合理、有趣且符合需求。
   """;
   }
+
 
 
 }

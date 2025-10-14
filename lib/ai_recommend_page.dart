@@ -82,6 +82,33 @@ class _AIRecommendPageState extends State<AIRecommendPage> {
     print("✅ 讀取景點成功，共 ${combined.length} 筆");
   }
 
+  // 依名稱 / 描述 / Category 粗略判斷是否符合使用者選的「旅遊類型」
+  bool _matchUserType(Map<String, String> spot, List<String> selectedTypes) {
+    if (selectedTypes.isEmpty) return true; // 沒選就不過濾
+
+    final typeField = (spot['Type'] ?? '');        // 你在 _loadSpots 有標 '景點' / '美食'
+    final category  = (spot['Category'] ?? '');    // 若 CSV 有分類欄位可用，沒有也沒關係
+    final name      = (spot['Name'] ?? '');
+    final desc      = (spot['Description'] ?? '');
+    final text = '$typeField|$category|$name|$desc';
+
+    bool isNature() => RegExp(r'自然|山|步道|森林|瀑布|湖|海|沙灘|溫泉|綠地|公園').hasMatch(text);
+    bool isCulture() => RegExp(r'文化|博物館|美術館|寺|廟|宮|古蹟|展覽|文創|老街').hasMatch(text);
+    bool isFood()    => typeField.contains('美食') || RegExp(r'餐|小吃|夜市|美食|咖啡|甜點').hasMatch(text);
+    bool isRelax()   => RegExp(r'溫泉|公園|海邊|湖畔|步道|草地|休閒|放鬆|風景').hasMatch(text);
+
+    for (final t in selectedTypes) {
+      switch (t) {
+        case '自然景點': if (isNature()) return true; break;
+        case '文化體驗': if (isCulture()) return true; break;
+        case '美食之旅': if (isFood())   return true; break;
+        case '放鬆休閒': if (isRelax())  return true; break;
+      }
+    }
+    return false;
+  }
+
+
 
 
   void _startRecommendation() async {
@@ -93,28 +120,49 @@ class _AIRecommendPageState extends State<AIRecommendPage> {
       return;
     }
 
-    print("🚀 開始推薦");
-
-    setState(() {
-      isLoading = true;
-    });
-
-    final filteredSpots = allSpots.where((spot) {
-      if (spot['Region'] != selectedCity) return false;
-      if (selectedTypes.isNotEmpty) {
-        return selectedTypes.any((type) => spot['Category']?.contains(type) ?? false);
-      }
-      return true;
-    }).toList();
-
-
-    if (filteredSpots.length < 5) {
+    if (startDate == null || endDate == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('⚠️ 可用景點太少，建議更換縣市或旅遊類型')),
+        const SnackBar(content: Text('請選擇出發與結束日期')),
       );
+      return;
     }
 
+
+    print("🚀 開始推薦");
+    setState(() => isLoading = true);
+
+    // ① 先用城市過濾
+    final cityFiltered = allSpots.where((s) => s['Region'] == selectedCity).toList();
+
+    // ② 依使用者選的旅遊類型做語意過濾（景點/美食都判斷）
+    List<Map<String, String>> candidates =
+        cityFiltered.where((s) => _matchUserType(s, selectedTypes)).toList();
+
+        if (candidates.isEmpty) {
+          setState(() => isLoading = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('目前條件下找不到景點，請更換縣市或放寬類型')),
+          );
+          return;
+        }
+
+
+    String relaxNote = '';
+    // ③ 候選太少就放寬：先放寬類型，只保留城市
+    if (candidates.length < 8) {
+      candidates = cityFiltered;
+      relaxNote = '已放寬「旅遊類型」條件';
+    }
+    if (candidates.length < 5) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('⚠️ 可用景點較少（${candidates.length}）$relaxNote')),
+      );
+    }
+    candidates.shuffle();
+
+
     try {
+      // ④ 把過濾後的候選清單交給 GPT（只給看這些）
       final gptResult = await openAIService
           .getTravelRecommendation(
             city: selectedCity!,
@@ -125,7 +173,7 @@ class _AIRecommendPageState extends State<AIRecommendPage> {
             endDate: endDate,
             mood: _moodController.text.trim(),
             need: _needController.text.trim(),
-            availableSpots: allSpots.where((spot) => spot['Region'] == selectedCity).toList(),
+            availableSpots: candidates, // ← 關鍵
           )
           .timeout(const Duration(seconds: 20), onTimeout: () {
         print("⚠️ GPT API 請求逾時");
@@ -140,12 +188,23 @@ class _AIRecommendPageState extends State<AIRecommendPage> {
         recommendationResult = gptResult;
       });
 
-      // ✅ 將 GPT 回傳內容轉成 dailySpots 格式
-      final dailySpots = parseGptTextToDailySpots(
-        gptResult,
-        allSpots.where((s) => s['Region'] == selectedCity).toList(),
-      );
+      // ⑤ 解析時也用同一份 candidates，避免對不到資料或類型跑偏
+      final dailySpots = parseGptTextToDailySpots(gptResult, candidates);
 
+      // （可選）post-check：把不在候選清單中的名稱剔除
+      final candNames = candidates.map((s) => s['Name']).whereType<String>().toSet();
+      for (final day in dailySpots) {
+        day.removeWhere((spot) => !candNames.contains(spot['Name']));
+      }
+
+      if (dailySpots.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('GPT 沒產出有效行程，請放寬條件或重試')),
+        );
+        return;
+      }
+
+      // ⑥ 跳結果頁也帶 candidates，保持一致
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -156,7 +215,7 @@ class _AIRecommendPageState extends State<AIRecommendPage> {
             budget: budget,
             transport: transport,
             gptRecommendation: gptResult,
-            allSpots: allSpots.where((s) => s['Region'] == selectedCity).toList(),
+            allSpots: candidates, // ← 改這裡
             mood: _moodController.text.trim(),
             need: _needController.text.trim(),
           ),
@@ -165,24 +224,16 @@ class _AIRecommendPageState extends State<AIRecommendPage> {
 
     } catch (e) {
       print("❌ 發生錯誤：$e");
-      setState(() {
-        isLoading = false;
-      });
+      setState(() => isLoading = false);
       showDialog(
         context: context,
         builder: (_) => AlertDialog(
           title: const Text('錯誤'),
           content: Text('無法獲得推薦行程：$e'),
           actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('取消')),
             TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('取消'),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-                _startRecommendation();
-              },
+              onPressed: () { Navigator.pop(context); _startRecommendation(); },
               child: const Text('重新推薦'),
             ),
           ],
@@ -190,6 +241,7 @@ class _AIRecommendPageState extends State<AIRecommendPage> {
       );
     }
   }
+
 
 
 
