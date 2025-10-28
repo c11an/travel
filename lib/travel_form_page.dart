@@ -46,6 +46,13 @@ class _TravelFormPageState extends State<TravelFormPage> {
 
   Marker? _activeMarker;
 
+  // 🔻 量上方搜尋/篩選卡片的高度，避免面板超過
+  final GlobalKey _filterKey = GlobalKey();
+  double _panelMaxFraction = 0.60; // 先給預設值（螢幕 60%）
+
+  // 🔻 DraggableScrollableSheet 目前高度（0~1 之間），可選
+  double _panelInitialFraction = 0.28;
+
 
   String? selectedCategory = "景點"; // 預設選擇景點
   @override
@@ -55,7 +62,37 @@ class _TravelFormPageState extends State<TravelFormPage> {
     _getUserLocation();
     _loadFavorites();
     _loadCustomMarkers();
+
+    // 🔻 等第一幀畫完後測量上方搜尋卡片高度，算出最大面板比例
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _recomputePanelMaxFraction();
+    });
   }
+
+  void _recomputePanelMaxFraction() {
+    final RenderBox? box = _filterKey.currentContext?.findRenderObject() as RenderBox?;
+    if (box != null && mounted) {
+      final filterHeight = box.size.height;                  // 上方搜尋卡片高度
+      final paddingTop = MediaQuery.of(context).padding.top; // SafeArea 高度
+      final totalH = MediaQuery.of(context).size.height;     
+
+      // map 區 + 面板的可用高度 = 螢幕 - (上方搜尋卡片 + SafeArea + 一點緩衝)
+      final availableForSheet = totalH - (filterHeight + paddingTop + 8);
+
+      // 轉成「螢幕比例」，確保在 0.2~0.95 之間
+      final maxFrac = (availableForSheet / totalH).clamp(0.2, 0.95);
+
+      setState(() {
+        _panelMaxFraction = maxFrac.toDouble();
+        if (_panelInitialFraction > _panelMaxFraction) {
+          _panelInitialFraction = _panelMaxFraction * 0.9;
+        }
+      });
+    }
+  }
+
+
+
 
   Future<void> _loadCustomMarkers() async {
     defaultMarker = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed);
@@ -443,6 +480,7 @@ Widget build(BuildContext context) {
           child: Padding(
             padding: const EdgeInsets.all(12.0),
             child: Container(
+              key: _filterKey,
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: Colors.white.withOpacity(0.85),
@@ -464,6 +502,7 @@ Widget build(BuildContext context) {
                             setState(() {
                               selectedCategory = category;
                               _loadSpots();
+                              WidgetsBinding.instance.addPostFrameCallback((_) => _recomputePanelMaxFraction());
                             });
                           },
                         ),
@@ -486,6 +525,7 @@ Widget build(BuildContext context) {
                               selectedTown = null;
                             });
                             _filterByCityTown(); // 🔥 加上這行觸發篩選
+                            WidgetsBinding.instance.addPostFrameCallback((_) => _recomputePanelMaxFraction()); // ★ 新增
                           },
                         ),
                       ),
@@ -531,33 +571,37 @@ Widget build(BuildContext context) {
         ),
 
         /// 下方展開/收合卡片列表（以按鈕控制）
-        Align(
-          alignment: Alignment.bottomCenter,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 300),
-            height: isListExpanded ? 250 : 60,
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.95),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-              boxShadow: [BoxShadow(blurRadius: 5, color: Colors.black26)],
-            ),
-            child: Column(
-              children: [
-                InkWell(
-                  onTap: () => setState(() => isListExpanded = !isListExpanded),
-                  child: Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: Icon(
-                      isListExpanded ? Icons.keyboard_arrow_down : Icons.keyboard_arrow_up,
-                      size: 28,
+        // 🔄 以可拖拉面板取代原本的固定高度卡片
+        DraggableScrollableSheet(
+          initialChildSize: _panelInitialFraction, // 0.28
+          minChildSize: 0.18,
+          maxChildSize: _panelMaxFraction,         // 由 _recomputePanelMaxFraction() 動態計算
+          snap: true,
+          snapSizes: [0.18, _panelMaxFraction],    // ✅ 一定要遞增
+          builder: (context, scrollController) {
+            return Container(
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.96),
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                boxShadow: const [BoxShadow(blurRadius: 5, color: Colors.black26)],
+              ),
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    child: Container(
+                      width: 40, height: 5,
+                      decoration: BoxDecoration(
+                        color: Colors.black26,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
                     ),
                   ),
-                ),
-                if (isListExpanded) buildLegend(),
-                if (isListExpanded)
+                  buildLegend(),
+                  const Divider(height: 1),
                   Expanded(
                     child: ListView.builder(
+                      controller: scrollController,
                       itemCount: filteredSpots.length,
                       itemBuilder: (context, index) {
                         final spot = filteredSpots[index];
@@ -576,41 +620,42 @@ Widget build(BuildContext context) {
                                 ),
                             ],
                           ),
-                          onTap: () {
+                          onTap: () async {
                             final lat = double.tryParse(spot['Py'] ?? '');
                             final lng = double.tryParse(spot['Px'] ?? '');
                             if (_mapController != null && lat != null && lng != null) {
                               final target = LatLng(lat, lng);
-
-                              // ✅ 更新 marker，只顯示這一筆
+                              await _mapController!.animateCamera(
+                                CameraUpdate.newCameraPosition(
+                                  CameraPosition(target: target, zoom: 15),
+                                ),
+                              );
                               setState(() {
                                 _activeMarker = Marker(
                                   markerId: MarkerId(spot['Name'] ?? '無名'),
                                   position: target,
-                                  icon: defaultMarker ?? BitmapDescriptor.defaultMarker,
-                                  onTap: () => _showSpotDialog(spot),
-                                  infoWindow: InfoWindow(
-                                    title: spot['Name'],
-                                    snippet: spot['Add'] ?? '',
+                                  icon: BitmapDescriptor.defaultMarkerWithHue(
+                                    BitmapDescriptor.hueRed, // 🔴 紅色
                                   ),
+                                  onTap: () => _showSpotDialog(spot),
+                                  infoWindow: InfoWindow.noText,
                                 );
                               });
-
-                              // ✅ 移動地圖到該 marker
-                              _mapController!.animateCamera(
-                                CameraUpdate.newLatLng(target),
-                              );
+                              await Future.delayed(const Duration(milliseconds: 180));
                             }
+                            _showSpotDialog(spot);
                           },
-
                         );
                       },
                     ),
                   ),
-              ],
-            ),
-          ),
+                ],
+              ),
+            );
+          },
         ),
+
+
       ],
     ),
     floatingActionButton: widget.browseOnly
