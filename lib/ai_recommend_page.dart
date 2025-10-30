@@ -5,6 +5,13 @@ import 'package:csv/csv.dart';
 import 'package:intl/intl.dart';
 import 'package:travel/openai_service.dart';
 
+// ===== 全站統一：奶茶文青風配色 =====
+const kBgCream     = Color(0xFFFAF3E0); // 背景：淡奶茶米色
+const kCardBase    = Color(0xFFEAD7B7); // 卡片 / 輸入底
+const kPressedTint = Color(0xFFD6C2A1); // 按下 hover
+const kTextDark    = Color(0xFF4E342E); // 深棕文字
+const kAccent      = Color(0xFFB48A60); // 拿鐵咖啡主色
+
 class AIRecommendPage extends StatefulWidget {
   const AIRecommendPage({super.key});
 
@@ -114,16 +121,12 @@ class _AIRecommendPageState extends State<AIRecommendPage> {
   void _startRecommendation() async {
     final openAIService = OpenAIService();
     if (selectedCity == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('請選擇縣市')),
-      );
+      _showSnack('請選擇縣市', isError: true);
       return;
     }
 
     if (startDate == null || endDate == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('請選擇出發與結束日期')),
-      );
+      _showSnack('請選擇出發及結束日期', isError: true);
       return;
     }
 
@@ -140,9 +143,7 @@ class _AIRecommendPageState extends State<AIRecommendPage> {
 
         if (candidates.isEmpty) {
           setState(() => isLoading = false);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('目前條件下找不到景點，請更換縣市或放寬類型')),
-          );
+          _showSnack('目前條件下找不到景點，請更換縣市或放寬類型', isError: true);
           return;
         }
 
@@ -154,9 +155,7 @@ class _AIRecommendPageState extends State<AIRecommendPage> {
       relaxNote = '已放寬「旅遊類型」條件';
     }
     if (candidates.length < 5) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('⚠️ 可用景點較少（${candidates.length}）$relaxNote')),
-      );
+      _showSnack('⚠️ 可用景點較少（${candidates.length}）$relaxNote', isError: true);
     }
     candidates.shuffle();
 
@@ -177,7 +176,9 @@ class _AIRecommendPageState extends State<AIRecommendPage> {
           )
           .timeout(const Duration(seconds: 20), onTimeout: () {
         print("⚠️ GPT API 請求逾時");
+        _showSnack('⚠️ ChatGPT 回應逾時，請稍後再試', isError: true);
         return "⚠️ ChatGPT 回應逾時，請稍後再試";
+
       });
 
       print("✅ GPT 結果長度：${gptResult.length}");
@@ -198,9 +199,7 @@ class _AIRecommendPageState extends State<AIRecommendPage> {
       }
 
       if (dailySpots.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('GPT 沒產出有效行程，請放寬條件或重試')),
-        );
+       _showSnack('GPT 沒產出有效行程，請放寬條件或重試', isError: true);
         return;
       }
 
@@ -227,22 +226,54 @@ class _AIRecommendPageState extends State<AIRecommendPage> {
       setState(() => isLoading = false);
       showDialog(
         context: context,
-        builder: (_) => AlertDialog(
-          title: const Text('錯誤'),
-          content: Text('無法獲得推薦行程：$e'),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('取消')),
-            TextButton(
-              onPressed: () { Navigator.pop(context); _startRecommendation(); },
-              child: const Text('重新推薦'),
+        builder: (_) => Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: kAccent,        // 拿鐵主色
+              onPrimary: Colors.white, // 按鈕文字
+              surface: kCardBase,      // 對話框底
+              onSurface: kTextDark,    // 一般文字
             ),
-          ],
+          ),
+          child: AlertDialog(
+            backgroundColor: kCardBase,
+            title: const Text('錯誤', style: TextStyle(color: kTextDark, fontWeight: FontWeight.bold)),
+            content: Text('無法獲得推薦行程：$e', style: const TextStyle(color: kTextDark)),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('取消', style: TextStyle(color: kAccent)),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _startRecommendation();
+                },
+                child: const Text('重新推薦', style: TextStyle(color: kAccent)),
+              ),
+            ],
+          ),
         ),
       );
+
     }
   }
 
-
+  void _showSnack(String message, {bool isError = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          message,
+          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+        ),
+        backgroundColor: isError ? Colors.redAccent.withOpacity(0.85) : kAccent,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
 
 
   Future<void> _selectDate(BuildContext context, bool isStart) async {
@@ -251,7 +282,28 @@ class _AIRecommendPageState extends State<AIRecommendPage> {
       initialDate: DateTime.now(),
       firstDate: DateTime.now(),
       lastDate: DateTime(2101),
+
+      // 🟤 奶茶風主題覆寫
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: kAccent,        // 主色（拿鐵咖啡）
+              onPrimary: Colors.white, // 主色文字
+              surface: kCardBase,      // 對話框背景：奶茶棕
+              onSurface: kTextDark,    // 主要文字：深棕
+            ),
+            textButtonTheme: TextButtonThemeData(
+              style: TextButton.styleFrom(
+                foregroundColor: kAccent, // 日期選擇按鈕（例如取消/確定）
+              ),
+            ),
+          ),
+          child: child!,
+        );
+      },
     );
+
     if (picked != null) {
       setState(() {
         if (isStart) {
@@ -266,135 +318,203 @@ class _AIRecommendPageState extends State<AIRecommendPage> {
     }
   }
 
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('AI行程推薦')),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('行程名稱'),
-              TextField(
-                controller: _tripNameController,
-                decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
-                  hintText: '輸入這趟旅程的名稱，例如：暑假小旅行',
-                ),
+    backgroundColor: kBgCream,
+    appBar: AppBar(
+      backgroundColor: kBgCream,
+      elevation: 0,
+      iconTheme: const IconThemeData(color: kTextDark),
+      title: const Text(
+        'AI行程推薦',
+        style: TextStyle(color: kTextDark, fontWeight: FontWeight.bold),
+      ),
+    ),
+    body: Padding(
+      padding: const EdgeInsets.all(16),
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('行程名稱', style: TextStyle(color: kTextDark, fontWeight: FontWeight.w600)),
+            TextField(
+              controller: _tripNameController,
+              style: const TextStyle(color: kTextDark),
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: kCardBase.withOpacity(0.6),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                hintText: '輸入這趟旅程的名稱，例如：暑假小旅行',
+                hintStyle: const TextStyle(color: kTextDark),
               ),
-              SizedBox(height: 16),
-              const Text('出發地（縣市）'),
-              DropdownButton<String>(
+            ),
+
+            const SizedBox(height: 16),
+            const Text('出發地（縣市）', style: TextStyle(color: kTextDark, fontWeight: FontWeight.w600)),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                color: kCardBase.withOpacity(0.6),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: DropdownButton<String>(
                 value: selectedCity,
+                isExpanded: true,
+                dropdownColor: kCardBase,
+                iconEnabledColor: kTextDark,
+                underline: const SizedBox.shrink(),
+                style: const TextStyle(color: kTextDark),
                 items: cities.map((city) => DropdownMenuItem(
                   value: city,
                   child: Text(city),
                 )).toList(),
                 onChanged: (value) => setState(() => selectedCity = value),
               ),
-              const SizedBox(height: 16),
-              const Text('出發日期和結束日期'),
-              Row(
-                children: [
-                  ElevatedButton(
-                    onPressed: () => _selectDate(context, true),
-                    child: Text(startDate == null ? '選擇出發日' : DateFormat('yyyy/MM/dd').format(startDate!)),
+            ),
+
+            const SizedBox(height: 16),
+            const Text('出發日期和結束日期', style: TextStyle(color: kTextDark, fontWeight: FontWeight.w600)),
+            Row(
+              children: [
+                ElevatedButton(
+                  onPressed: () => _selectDate(context, true),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: isLoading ? kPressedTint : kAccent,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
-                  const SizedBox(width: 12),
-                  ElevatedButton(
-                    onPressed: () => _selectDate(context, false),
-                    child: Text(endDate == null ? '選擇結束日' : DateFormat('yyyy/MM/dd').format(endDate!)),
+                  child: Text(startDate == null ? '選擇出發日' : DateFormat('yyyy/MM/dd').format(startDate!)),
+                ),
+                const SizedBox(width: 12),
+                ElevatedButton(
+                  onPressed: () => _selectDate(context, false),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: kAccent,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              const Text('旅遊類型'),
-              Wrap(
-                spacing: 8,
-                children: ['自然景點', '文化體驗', '美食之旅', '放鬆休閒'].map((type) {
-                  return ChoiceChip(
-                    label: Text(type),
-                    selected: selectedTypes.contains(type),
-                    onSelected: (selected) {
-                      setState(() {
-                        if (selected) {
-                          selectedTypes.add(type);
-                        } else {
-                          selectedTypes.remove(type);
-                        }
-                      });
-                    },
-                  );
-                }).toList(),
-              ),
-              if (selectedTypes.isNotEmpty)
+                  child: Text(endDate == null ? '選擇結束日' : DateFormat('yyyy/MM/dd').format(endDate!)),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 16),
+            const Text('旅遊類型', style: TextStyle(color: kTextDark, fontWeight: FontWeight.w600)),
+            Wrap(
+              spacing: 8,
+              children: ['自然景點', '文化體驗', '美食之旅', '放鬆休閒'].map((type) {
+                final selected = selectedTypes.contains(type);
+                return ChoiceChip(
+                  label: Text(
+                    type,
+                    style: TextStyle(color: selected ? Colors.white : kTextDark),
+                  ),
+                  selected: selected,
+                  selectedColor: kAccent,
+                  backgroundColor: kCardBase.withOpacity(0.85),
+                  onSelected: (isSel) {
+                    setState(() {
+                      if (isSel) {
+                        selectedTypes.add(type);
+                      } else {
+                        selectedTypes.remove(type);
+                      }
+                    });
+                  },
+                );
+              }).toList(),
+            ),
+            if (selectedTypes.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
-                child: Text('已選：${selectedTypes.join("、")}'),
+                child: Text('已選：${selectedTypes.join("、")}',
+                    style: const TextStyle(color: kTextDark)),
               ),
 
-              const SizedBox(height: 16),
-              const Text('預算範圍 (NT\$)'),
-              Slider(
-                value: budget,
-                min: 1000,
-                max: 20000,
-                divisions: 19,
-                label: budget.round().toString(),
-                onChanged: (value) {
-                  setState(() {
-                    budget = value;
-                  });
-                },
-              ),
-              const SizedBox(height: 16),
-              const Text('今天的心情'),
-              TextField(
-                controller: _moodController,
-                decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
-                  hintText: '例如：放鬆、熱血、壓力大',
-                ),
-              ),
+            const SizedBox(height: 16),
+            const Text('預算範圍 (NT\$)', style: TextStyle(color: kTextDark, fontWeight: FontWeight.w600)),
+            Slider(
+              value: budget,
+              min: 1000,
+              max: 20000,
+              divisions: 19,
+              label: budget.round().toString(),
+              activeColor: kAccent,
+              inactiveColor: kPressedTint,
+              onChanged: (value) => setState(() => budget = value),
+            ),
 
-              const SizedBox(height: 16),
-              const Text('有什麼需求或偏好嗎？'),
-              TextField(
-                controller: _needController,
-                decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
-                  hintText: '例如：想泡溫泉、不想曬太陽、不想人擠人',
-                ),
+            const SizedBox(height: 16),
+            const Text('今天的心情', style: TextStyle(color: kTextDark, fontWeight: FontWeight.w600)),
+            TextField(
+              controller: _moodController,
+              style: const TextStyle(color: kTextDark),
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: kCardBase.withOpacity(0.6),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                hintText: '例如：放鬆、熱血、壓力大',
+                hintStyle: const TextStyle(color: kTextDark),
               ),
-              
-              const SizedBox(height: 30),
-              Center(
-                child: ElevatedButton(
-                  onPressed: isLoading ? null : _startRecommendation,
-                  child: isLoading
-                  ? Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: const [
-                        SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                        SizedBox(width: 12),
-                        Text('推薦中，請稍候...'),
-                      ],
-                    )
-                  : const Text('開始推薦行程'),
-                ),
+            ),
+
+            const SizedBox(height: 16),
+            const Text('有什麼需求或偏好嗎？', style: TextStyle(color: kTextDark, fontWeight: FontWeight.w600)),
+            TextField(
+              controller: _needController,
+              style: const TextStyle(color: kTextDark),
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: kCardBase.withOpacity(0.6),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                hintText: '例如：想泡溫泉、不想曬太陽、不想人擠人',
+                hintStyle: const TextStyle(color: kTextDark),
               ),
-            ],
-          ),
+            ),
+
+            const SizedBox(height: 30),
+            Center(
+              child: ElevatedButton(
+                onPressed: isLoading ? null : _startRecommendation,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: kAccent,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
+                ),
+                child: isLoading
+                    ? Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: const [
+                          SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          ),
+                          SizedBox(width: 12),
+                          Text('推薦中，請稍候...'),
+                        ],
+                      )
+                    : const Text('開始推薦行程'),
+              ),
+            ),
+          ],
         ),
       ),
-    );
+    ),
+  );
+
   }
+  @override
+  void dispose() {
+    _moodController.dispose();
+    _needController.dispose();
+    _tripNameController.dispose();
+    super.dispose();
+  }
+
 
   List<List<Map<String, String>>> parseGptTextToDailySpots(String gptText, List<Map<String, String>> allSpots) {
     final lines = gptText.split('\n');

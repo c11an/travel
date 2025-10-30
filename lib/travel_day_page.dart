@@ -50,7 +50,15 @@ class TravelDayPage extends StatefulWidget {
 
   @override
   State<TravelDayPage> createState() => _TravelDayPageState();
+
 }
+
+// ===== 文青：奶茶米色系 =====
+const kBgCream     = Color(0xFFFAF3E0); // 背景：淡奶茶米色
+const kCardBase    = Color(0xFFEAD7B7); // 卡片/按鍵底：奶茶棕
+const kPressedTint = Color(0xFFD6C2A1); // 按下/hover：更深一階
+const kTextDark    = Color(0xFF4E342E); // 文字：深棕
+const kAccent      = Color(0xFFB48A60); // 點綴：拿鐵咖啡色
 
 
 class _TravelDayPageState extends State<TravelDayPage>
@@ -516,6 +524,7 @@ class _TravelDayPageState extends State<TravelDayPage>
     return WillPopScope(
       onWillPop: () async => !widget.fromAiResult,
       child: Scaffold(
+        backgroundColor: kBgCream, // ✅ 背景
         appBar: AppBar(
           title: Text('🛢️ ${widget.tripName}'),
 
@@ -560,7 +569,7 @@ class _TravelDayPageState extends State<TravelDayPage>
               padding: const EdgeInsets.all(12),
               child: Text(
                 '旅遊期間：$tripDuration',
-                style: const TextStyle(fontWeight: FontWeight.bold),
+                style: const TextStyle(fontWeight: FontWeight.bold,color: kTextDark),
               ),
             ),
             Expanded(
@@ -676,8 +685,9 @@ class _TravelDayPageState extends State<TravelDayPage>
                                                   height: hourBlockHeight,
                                                   child: Container(
                                                     decoration: BoxDecoration(
+                                                      color: kCardBase.withOpacity(0.5), // ✅ 奶茶半透明底
                                                       border: Border(
-                                                        top: BorderSide(color: Colors.grey.shade300),
+                                                        top: BorderSide(color: kTextDark.withOpacity(0.15)), // ✅ 柔格線
                                                       ),
                                                     ),
                                                   ),
@@ -754,8 +764,12 @@ class _TravelDayPageState extends State<TravelDayPage>
                         : const Icon(Icons.save),
                     label: Text(_isSaving ? "儲存中..." : "儲存行程"),
                     style: ElevatedButton.styleFrom(
-                      textStyle: const TextStyle(fontSize: 16),
-                    ),
+                      backgroundColor: kAccent,
+                      foregroundColor: Colors.white,
+                      overlayColor: kPressedTint,
+                      textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                        ),
                   ),
                 ),
               ),
@@ -834,7 +848,7 @@ class _TravelDayPageState extends State<TravelDayPage>
 
   Widget _buildSpotBlock(Map<String, String> spot, int dayIndex, {bool isFeedback = false}) {
     if (!spot.containsKey('Name')) {
-      print("🚨 無效景點：$spot");
+      debugPrint("🚨 無效景點：$spot");
       return const SizedBox();
     }
 
@@ -842,18 +856,23 @@ class _TravelDayPageState extends State<TravelDayPage>
     final name = spot['Name'] ?? '無名稱';
     final time = spot['Time'] ?? '08';
 
-    print("👀 顯示景點：$name，開始時間：$time，停留時間：$duration 小時");
-
     final container = Container(
-      // ✅ 不設 width，讓外層決定（避免 feedback 出錯）
       height: duration * hourBlockHeight,
       decoration: BoxDecoration(
-        color: isFeedback ? Colors.blue.withOpacity(0.6) : const Color.fromARGB(255, 128, 189, 239),
+        color: isFeedback ? kAccent.withOpacity(0.7) : kAccent, // ✅ 奶茶點綴色
         borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.white.withOpacity(0.25)), // ✅ 淺邊框更文青
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08), // ✅ 柔霧陰影
+            blurRadius: 8,
+            offset: const Offset(2, 4),
+          ),
+        ],
       ),
       padding: const EdgeInsets.all(8),
       child: Column(
-        mainAxisSize: MainAxisSize.min, // ✅ 重點：讓內容自動壓縮
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
@@ -861,7 +880,11 @@ class _TravelDayPageState extends State<TravelDayPage>
               Expanded(
                 child: Text(
                   name,
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.2,          // ✅ 微字距
+                  ),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
@@ -875,7 +898,7 @@ class _TravelDayPageState extends State<TravelDayPage>
             ],
           ),
           const SizedBox(height: 4),
-          Flexible( // ✅ 這一層確保不超出方塊高度
+          Flexible(
             child: Text(
               '$duration 小時',
               style: const TextStyle(color: Colors.white, fontSize: 12),
@@ -884,13 +907,12 @@ class _TravelDayPageState extends State<TravelDayPage>
           ),
         ],
       ),
-
     );
 
     if (isFeedback) {
-      // ✅ 加上固定寬度（拖曳才會有實體尺寸）
+      // ✅ 拖曳中的預覽給固定寬度，避免尺寸不明
       return SizedBox(
-        width: MediaQuery.of(context).size.width - 100, // 可調整寬度
+        width: MediaQuery.of(context).size.width - 100,
         child: container,
       );
     }
@@ -914,13 +936,13 @@ class _TravelDayPageState extends State<TravelDayPage>
           );
         }
       },
-
       child: GestureDetector(
         onTap: () => _showSpotInfoDialog(spot),
         child: container,
       ),
     );
   }
+
 
 
   // 顯示簡化版景點資訊 Dialog（只有關閉與資訊按鈕）
@@ -1111,8 +1133,8 @@ class _TravelDayPageState extends State<TravelDayPage>
             builder: (context, candidateData, rejectedData) {
               return Container(
                 color: candidateData.isNotEmpty
-                    ? Colors.blue.withOpacity(0.05)
-                    : Colors.transparent,
+                  ? kAccent.withOpacity(0.08) // ✅ 柔和拿鐵色高亮
+                  : Colors.transparent,
               );
             },
           );
@@ -1204,70 +1226,59 @@ class _TravelDayPageState extends State<TravelDayPage>
     }
 
     // ✅ NEW：把目前行程轉成可上傳的 JSON
-Map<String, dynamic> _buildUploadPayload() {
-  // 轉成 yyyy-MM-dd
-  final startDateStr = DateFormat('yyyy-MM-dd').format(widget.startDate);
-  final endDateStr = DateFormat('yyyy-MM-dd').format(widget.endDate);
+  Map<String, dynamic> _buildUploadPayload() {
+    // 轉成 yyyy-MM-dd
+    final startDateStr = DateFormat('yyyy-MM-dd').format(widget.startDate);
+    final endDateStr = DateFormat('yyyy-MM-dd').format(widget.endDate);
 
-  // 把 dailySpots 轉成更乾淨的結構（保留你現有欄位）
-  final days = <Map<String, dynamic>>[];
-  for (int d = 0; d < dayCount; d++) {
-    final spots = (d < dailySpots.length) ? dailySpots[d] : <Map<String, String>>[];
-    days.add({
-      "index": d + 1,
-      "date": DateFormat('yyyy-MM-dd').format(widget.startDate.add(Duration(days: d))),
-      "spots": spots.map((s) => {
-        "Name": s["Name"] ?? "",
-        "Add": s["Add"] ?? "",
-        "Px": s["Px"] ?? "",
-        "Py": s["Py"] ?? "",
-        "Description": s["Description"] ?? (s["Toldescribe"] ?? ""),
-        "Time": s["Time"] ?? "08",
-        "Duration": s["Duration"] ?? "1",
-        "Raw": s["Raw"] ?? "",
-        "Picture1": s["Picture1"] ?? "",
-      }).toList(),
-      "transports": (d < dailyTransports.length) ? dailyTransports[d] : <String>[],
-    });
-  }
+    // 把 dailySpots 轉成更乾淨的結構（保留你現有欄位）
+    final days = <Map<String, dynamic>>[];
+    for (int d = 0; d < dayCount; d++) {
+      final spots = (d < dailySpots.length) ? dailySpots[d] : <Map<String, String>>[];
+      days.add({
+        "index": d + 1,
+        "date": DateFormat('yyyy-MM-dd').format(widget.startDate.add(Duration(days: d))),
+        "spots": spots.map((s) => {
+          "Name": s["Name"] ?? "",
+          "Add": s["Add"] ?? "",
+          "Px": s["Px"] ?? "",
+          "Py": s["Py"] ?? "",
+          "Description": s["Description"] ?? (s["Toldescribe"] ?? ""),
+          "Time": s["Time"] ?? "08",
+          "Duration": s["Duration"] ?? "1",
+          "Raw": s["Raw"] ?? "",
+          "Picture1": s["Picture1"] ?? "",
+        }).toList(),
+        "transports": (d < dailyTransports.length) ? dailyTransports[d] : <String>[],
+      });
+    }
 
 
 
-  // 對齊你後端 sync_hfl_data 的鍵位（多的鍵後端會忽略也沒關係）
-  return {
-    "uid": userUid,
-    "model": "gpt",
-    "prompt": "save_trip_after_user_confirmed",
-    "city": null, // 若你有 city 可在這裡帶
-    "budget": widget.budget,
-    "transport": widget.transport,
-    "types": <String>[], // 若有旅遊類型就帶
-    "date_range": {"start": startDateStr, "end": endDateStr},
-    "parameters": {
-      "trip_name": widget.tripName,
-      "mood": widget.mood,
-      "need": widget.need,
-    },
-    "itinerary": {
-      "tripName": widget.tripName,
-      "startDate": startDateStr,
-      "endDate": endDateStr,
+    // 對齊你後端 sync_hfl_data 的鍵位（多的鍵後端會忽略也沒關係）
+    return {
+      "uid": userUid,
+      "model": "gpt",
+      "prompt": "save_trip_after_user_confirmed",
+      "city": null, // 若你有 city 可在這裡帶
       "budget": widget.budget,
       "transport": widget.transport,
-      "days": days,
-    },
-  };
-}
-
-
-
-
-
-
-
-
-
-
-
+      "types": <String>[], // 若有旅遊類型就帶
+      "date_range": {"start": startDateStr, "end": endDateStr},
+      "parameters": {
+        "trip_name": widget.tripName,
+        "mood": widget.mood,
+        "need": widget.need,
+      },
+      "itinerary": {
+        "tripName": widget.tripName,
+        "startDate": startDateStr,
+        "endDate": endDateStr,
+        "budget": widget.budget,
+        "transport": widget.transport,
+        "days": days,
+      },
+    };
+  }
 
 }
