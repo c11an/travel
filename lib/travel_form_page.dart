@@ -11,6 +11,14 @@ import 'package:url_launcher/url_launcher.dart';
 import 'dart:convert';
 import 'package:travel/travel_schedule_page.dart';
 
+// ===== 文青：奶茶米色系 =====
+const kBgCream     = Color(0xFFFAF3E0); // 背景：淡奶茶米色
+const kCardBase    = Color(0xFFEAD7B7); // 卡片/面板底：奶茶棕
+const kPressedTint = Color(0xFFD6C2A1); // 按下/hover
+const kTextDark    = Color(0xFF4E342E); // 文字：深棕
+const kAccent      = Color(0xFFB48A60); // 點綴：拿鐵咖啡色
+
+
 class TravelFormPage extends StatefulWidget {
   final int dayIndex;
   final bool browseOnly;
@@ -281,125 +289,188 @@ class _TravelFormPageState extends State<TravelFormPage> {
 
     showDialog(
       context: context,
-      builder: (context) {
-        final description = (spot['Description']?.trim().isNotEmpty ?? false)
-            ? spot['Description']
-            : (spot['Toldescribe'] ?? '❌ 沒有描述資料');
-
-        return AlertDialog(
-          title: Text(spot['Name'] ?? '無名稱'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if ((spot['Add'] ?? '').isNotEmpty)
-                Text("📍 ${spot['Add']}")
-              else
-                const Text("📍 無地址"),
-              const SizedBox(height: 8),
-              if (imageUrl.startsWith('http'))
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: SizedBox(
-                    height: 150,
-                    width: MediaQuery.of(context).size.width * 0.8,
-                    child: CachedNetworkImage(
-                      imageUrl: imageUrl,
-                      fit: BoxFit.cover,
-                      placeholder: (context, url) => const CircularProgressIndicator(),
-                      errorWidget: (context, url, error) => const Icon(Icons.error),
-                    ),
-                  ),
-                )
-              else
-                const Text("❌ 無圖片"),
-            ],
+      builder: (_) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: kAccent,
+              onPrimary: Colors.white,
+              surface: kCardBase,
+              onSurface: kTextDark,
+            ),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text("關閉"),
+          child: AlertDialog(
+            backgroundColor: kCardBase,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: Text(
+              spot['Name'] ?? '無名稱',
+              style: const TextStyle(color: kTextDark, fontWeight: FontWeight.bold),
             ),
-            TextButton(
-              onPressed: () {
-                final lat = spot['Py'];
-                final lng = spot['Px'];
-                if (lat != null && lng != null) {
-                  final url =
-                      'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng&travelmode=driving';
-                  launchUrl(
-                    Uri.parse(url),
-                    mode: LaunchMode.externalApplication,
-                  );
-                }
-              },
-              child: const Text('🧭 導航'),
+            content: SingleChildScrollView(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 420, maxHeight: 360),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if ((spot['Add'] ?? '').isNotEmpty)
+                      RichText(
+                        text: TextSpan(
+                          style: const TextStyle(color: kTextDark, fontSize: 14),
+                          children: [
+                            const TextSpan(text: "📍 "),
+                            TextSpan(text: spot['Add']),
+                          ],
+                        ),
+                      )
+                    else
+                      const Text("📍 無地址", style: TextStyle(color: kTextDark)),
+                    const SizedBox(height: 12),
+                    if (imageUrl.startsWith('http'))
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: AspectRatio(
+                          aspectRatio: 16 / 9,
+                          child: CachedNetworkImage(
+                            imageUrl: imageUrl,
+                            fit: BoxFit.cover,
+                            placeholder: (context, url) =>
+                                const Center(child: CircularProgressIndicator()),
+                            errorWidget: (context, url, error) =>
+                                const Icon(Icons.error, color: kTextDark),
+                          ),
+                        ),
+                      )
+                    else
+                      const Text("❌ 無圖片", style: TextStyle(color: kTextDark)),
+                  ],
+                ),
+              ),
             ),
-            TextButton(
-              onPressed: () {
-                _toggleFavorite(spot);
-                Navigator.pop(context);
-              },
-              child: Text(alreadyFavorited ? '⭐ 移除收藏' : '⭐ 加入收藏'),
-            ),
-            if (!widget.browseOnly)
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text("關閉", style: TextStyle(color: kAccent)),
+              ),
               TextButton(
                 onPressed: () {
-                  setState(() {
-                    if (alreadyAdded) {
-                      selectedSpots.removeWhere((s) => s['Name'] == spot['Name']);
-                    } else {
-                      selectedSpots.add(spot);
-                    }
-                  });
+                  final lat = spot['Py'];
+                  final lng = spot['Px'];
+                  if ((lat?.isNotEmpty ?? false) && (lng?.isNotEmpty ?? false)) {
+                    final url =
+                        'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng&travelmode=driving';
+                    launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+                  } else {
+                    _showSnack('❌ 缺少座標，無法導航');
+                  }
+                },
+                child: const Text('🧭 導航', style: TextStyle(color: kAccent)),
+              ),
+              TextButton(
+                onPressed: () {
+                  _toggleFavorite(spot);
                   Navigator.pop(context);
                 },
-                child: Text(alreadyAdded ? '❌ 移除行程' : '✅ 加入行程'),
+                child: Text(
+                  _isFavorited(spot) ? '⭐ 移除收藏' : '⭐ 加入收藏',
+                  style: const TextStyle(color: kAccent),
+                ),
               ),
-            TextButton(
-              onPressed: () {
-                final description = (spot['Toldescribe']?.trim().isNotEmpty ?? false)
-                    ? spot['Toldescribe']
-                    : (spot['Description'] ?? '❌ 沒有描述資料');
-
-                showDialog(
-                  context: context,
-                  builder: (_) => AlertDialog(
-                    title: const Text("📘 景點資訊"),
-                    content: SingleChildScrollView(
-                      child: Text(description ?? '❌ 沒有描述資料'),
-                    ),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: const Text("關閉"),
-                      ),
-                    ],
+              if (!widget.browseOnly)
+                TextButton(
+                  onPressed: () {
+                    setState(() {
+                      final alreadyAdded =
+                          selectedSpots.any((s) => s['Name'] == spot['Name']);
+                    if (alreadyAdded) {
+                        selectedSpots
+                            .removeWhere((s) => s['Name'] == spot['Name']);
+                      } else {
+                        selectedSpots.add(spot);
+                      }
+                    });
+                    Navigator.pop(context);
+                  },
+                  child: Text(
+                    selectedSpots.any((s) => s['Name'] == spot['Name'])
+                        ? '❌ 移除行程'
+                        : '✅ 加入行程',
+                    style: const TextStyle(color: kAccent),
                   ),
-                );
-              },
-              child: const Text("📘 資訊"),
-            ),
-          ],
+                ),
+              TextButton(
+                onPressed: () {
+                  final String longDesc =
+                      (spot['Toldescribe']?.trim().isNotEmpty ?? false)
+                          ? spot['Toldescribe']!
+                          : (spot['Description'] ?? '❌ 沒有描述資料');
 
+                  showDialog(
+                    context: context,
+                    builder: (_) => Theme(
+                      data: Theme.of(context).copyWith(
+                        colorScheme: const ColorScheme.light(
+                          primary: kAccent,
+                          onPrimary: Colors.white,
+                          surface: kCardBase,
+                          onSurface: kTextDark,
+                        ),
+                      ),
+                      child: AlertDialog(
+                        backgroundColor: kCardBase,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16)),
+                        title: const Text(
+                          "📘 景點資訊",
+                          style: TextStyle(color: kTextDark, fontWeight: FontWeight.bold),
+                        ),
+                        content: SingleChildScrollView(
+                          child: Text(longDesc, style: const TextStyle(color: kTextDark)),
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child:
+                                const Text("關閉", style: TextStyle(color: kAccent)),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+                child: const Text("📘 資訊", style: TextStyle(color: kAccent)),
+              ),
+            ],
+          ),
         );
       },
     );
 
+
   }
+
+  void _showSnack(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg, style: const TextStyle(color: Colors.white)),
+        backgroundColor: kAccent,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.all(12),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
 
   void _goToSchedulePage() async {
     if (widget.browseOnly) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('目前是瀏覽模式，無法排入行程表')),
-      );
+       _showSnack('目前是瀏覽模式，無法排入行程表');
       return;
     }
 
     if (selectedSpots.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('請先選擇景點')),
-      );
+       _showSnack('請先選擇景點');
       return;
     }
 
@@ -411,9 +482,7 @@ class _TravelFormPageState extends State<TravelFormPage> {
     final DateTime? endDate   = _toDate(info['end_date']   ?? info['endDate']   ?? info['end']);
 
     if (startDate == null || endDate == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('行程日期缺失或格式錯誤，無法排表')),
-      );
+       _showSnack('行程日期缺失或格式錯誤，無法排表');
       return;
     }
 
@@ -454,12 +523,30 @@ class _TravelFormPageState extends State<TravelFormPage> {
 
 
   @override
-Widget build(BuildContext context) {
-  final markers = _activeMarker != null ? {_activeMarker!} : <Marker>{};
-
+  Widget build(BuildContext context) {
+    final markers = _activeMarker != null ? {_activeMarker!} : <Marker>{};
 
   return Scaffold(
-    appBar: AppBar(title: const Text('探索地圖')),
+    backgroundColor: kBgCream,
+    appBar: AppBar(
+      backgroundColor: kBgCream,          // ✅ 背景奶茶色
+      elevation: 0,                       // ✅ 移除陰影，視覺更柔和
+      centerTitle: true,                  // ✅ 標題置中（可選）
+      title: const Text(
+        '探索地圖',
+        style: TextStyle(
+          color: kTextDark, 
+          fontWeight: FontWeight.bold, 
+          fontSize: 20,
+        ),
+      ),
+      iconTheme: const IconThemeData(
+        color: kTextDark,                 // ✅ 返回鍵與圖示同色
+      ),
+      actionsIconTheme: const IconThemeData(
+        color: kTextDark,                 // ✅ 若有右上角圖示也同色
+      ),
+    ),
     body: Stack(
       children: [
         /// 背景地圖
@@ -483,88 +570,111 @@ Widget build(BuildContext context) {
               key: _filterKey,
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.85),
-                borderRadius: BorderRadius.circular(12),
+                 color: kCardBase.withOpacity(0.95),
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 8, offset: const Offset(2,4))],
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: DropdownButton<String>(
-                          value: selectedCategory,
-                          items: const [
-                            DropdownMenuItem(value: "景點", child: Text("景點")),
-                            DropdownMenuItem(value: "美食", child: Text("美食")),
-                          ],
-                          onChanged: (category) {
-                            setState(() {
-                              selectedCategory = category;
-                              _loadSpots();
-                              WidgetsBinding.instance.addPostFrameCallback((_) => _recomputePanelMaxFraction());
-                            });
-                          },
+              child: DefaultTextStyle.merge( // ✅ 讓內文字預設用深棕
+                style: const TextStyle(color: kTextDark),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: DropdownButton<String>(
+                            value: selectedCategory,
+                            dropdownColor: kCardBase,              // 下拉清單底色
+                            iconEnabledColor: kTextDark,           // 箭頭色
+                            style: const TextStyle(color: kTextDark),
+                            items: const [
+                              DropdownMenuItem(value: "景點", child: Text("景點",style: TextStyle(color: kTextDark))),
+                              DropdownMenuItem(value: "美食", child: Text("美食",style: TextStyle(color: kTextDark))),
+                            ],
+                            onChanged: (category) {
+                              setState(() {
+                                selectedCategory = category;
+                                _loadSpots();
+                                WidgetsBinding.instance.addPostFrameCallback((_) => _recomputePanelMaxFraction());
+                              });
+                            },
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: DropdownButton<String>(
-                          isExpanded: true,
-                          hint: const Text("選擇縣市"),
-                          value: selectedCity,
-                          items: cityTownMap.keys.map((city) {
-                            return DropdownMenuItem(
-                              value: city,
-                              child: Text(city),
-                            );
-                          }).toList(),
-                          onChanged: (city) {
-                            setState(() {
-                              selectedCity = city;
-                              selectedTown = null;
-                            });
-                            _filterByCityTown(); // 🔥 加上這行觸發篩選
-                            WidgetsBinding.instance.addPostFrameCallback((_) => _recomputePanelMaxFraction()); // ★ 新增
-                          },
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: DropdownButton<String>(
+                            isExpanded: true,
+                            hint: const Text("選擇縣市",style: TextStyle(color: kTextDark)),
+                            value: selectedCity,
+                            dropdownColor: kCardBase,              // 下拉清單底色
+                            iconEnabledColor: kTextDark,           // 箭頭色
+                            style: const TextStyle(color: kTextDark),
+                            items: cityTownMap.keys.map((city) {
+                              return DropdownMenuItem(
+                                value: city,
+                                child: Text(city),
+                              );
+                            }).toList(),
+                            onChanged: (city) {
+                              setState(() {
+                                selectedCity = city;
+                                selectedTown = null;
+                              });
+                              _filterByCityTown(); // 🔥 加上這行觸發篩選
+                              WidgetsBinding.instance.addPostFrameCallback((_) => _recomputePanelMaxFraction()); // ★ 新增
+                            },
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: DropdownButton<String>(
-                          isExpanded: true,
-                          hint: const Text("選擇鄉鎮市區"),
-                          value: selectedTown,
-                          items: selectedCity == null
-                              ? []
-                              : cityTownMap[selectedCity]!.map((town) {
-                                  return DropdownMenuItem(
-                                    value: town,
-                                    child: Text(town),
-                                  );
-                                }).toList(),
-                          onChanged: (town) {
-                            setState(() {
-                              selectedTown = town;
-                              _filterByCityTown();
-                            });
-                          },
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: DropdownButton<String>(
+                            isExpanded: true,
+                            hint: const Text("選擇鄉鎮市區",style: TextStyle(color: kTextDark)),
+                            value: selectedTown,
+                            dropdownColor: kCardBase,              // 下拉清單底色
+                            iconEnabledColor: kTextDark,           // 箭頭色
+                            style: const TextStyle(color: kTextDark),
+                            items: selectedCity == null
+                                ? []
+                                : cityTownMap[selectedCity]!.map((town) {
+                                    return DropdownMenuItem(
+                                      value: town,
+                                      child: Text(town),
+                                    );
+                                  }).toList(),
+                            onChanged: (town) {
+                              setState(() {
+                                selectedTown = town;
+                                _filterByCityTown();
+                              });
+                            },
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  TextField(
-                    decoration: const InputDecoration(
-                      hintText: '輸入關鍵字搜尋景點',
-                      filled: true,
-                      fillColor: Colors.white,
-                      prefixIcon: Icon(Icons.search),
-                      border: OutlineInputBorder(),
+                      ],
                     ),
-                    onChanged: _filterByKeyword,
-                  ),
-                ],
+                    const SizedBox(height: 8),
+                    TextField(
+                      cursorColor: kAccent,
+                      decoration: InputDecoration(
+                        hintText: '輸入關鍵字搜尋景點',
+                        hintStyle: TextStyle(color: kTextDark.withOpacity(0.6)),
+                        filled: true,
+                        fillColor: kBgCream.withOpacity(0.9),
+                        prefixIcon: const Icon(Icons.search, color: kTextDark),
+                        enabledBorder: OutlineInputBorder(
+                          borderSide: const BorderSide(color: kTextDark),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderSide: const BorderSide(color: kAccent, width: 2),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      style: const TextStyle(color: kTextDark),
+                      onChanged: _filterByKeyword,
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -573,134 +683,131 @@ Widget build(BuildContext context) {
         /// 下方展開/收合卡片列表（以按鈕控制）
         // 🔄 以可拖拉面板取代原本的固定高度卡片
         DraggableScrollableSheet(
-          initialChildSize: _panelInitialFraction, // 0.28
+          initialChildSize: _panelInitialFraction,
           minChildSize: 0.18,
-          maxChildSize: _panelMaxFraction,         // 由 _recomputePanelMaxFraction() 動態計算
+          maxChildSize: _panelMaxFraction,
           snap: true,
-          snapSizes: [0.18, _panelMaxFraction],    // ✅ 一定要遞增
+          snapSizes: [0.18, _panelMaxFraction],
           builder: (context, scrollController) {
-            return Container(
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.96),
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                boxShadow: const [BoxShadow(blurRadius: 5, color: Colors.black26)],
-              ),
-              child: Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 6),
-                    child: Container(
-                      width: 40, height: 5,
-                      decoration: BoxDecoration(
-                        color: Colors.black26,
-                        borderRadius: BorderRadius.circular(999),
+            return DefaultTextStyle.merge(
+              style: const TextStyle(color: kTextDark),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: kCardBase.withOpacity(0.96),
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.10), blurRadius: 10)],
+                ),
+                child: Column(
+                  children: [
+                    // 把手
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      child: Container(
+                        width: 44, height: 5,
+                        decoration: BoxDecoration(
+                          color: kTextDark.withOpacity(0.35),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
                       ),
                     ),
-                  ),
-                  buildLegend(),
-                  const Divider(height: 1),
-                  Expanded(
-                    child: ListView.builder(
-                      controller: scrollController,
-                      itemCount: filteredSpots.length,
-                      itemBuilder: (context, index) {
-                        final spot = filteredSpots[index];
-                        return ListTile(
-                          title: Text(spot['Name'] ?? ''),
-                          subtitle: Text(spot['Add'] ?? ''),
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              if (_isFavorited(spot))
-                                const Icon(Icons.star, color: Colors.amber),
-                              if (selectedSpots.any((s) => s['Name'] == spot['Name']))
-                                const Padding(
-                                  padding: EdgeInsets.only(left: 4),
-                                  child: Icon(Icons.event_available, color: Colors.green),
-                                ),
-                            ],
-                          ),
-                          onTap: () async {
-                            final lat = double.tryParse(spot['Py'] ?? '');
-                            final lng = double.tryParse(spot['Px'] ?? '');
-                            if (_mapController != null && lat != null && lng != null) {
-                              final target = LatLng(lat, lng);
-                              await _mapController!.animateCamera(
-                                CameraUpdate.newCameraPosition(
-                                  CameraPosition(target: target, zoom: 15),
-                                ),
-                              );
-                              setState(() {
-                                _activeMarker = Marker(
-                                  markerId: MarkerId(spot['Name'] ?? '無名'),
-                                  position: target,
-                                  icon: BitmapDescriptor.defaultMarkerWithHue(
-                                    BitmapDescriptor.hueRed, // 🔴 紅色
+                    buildLegend(),
+                    Divider(height: 1, color: kTextDark.withOpacity(0.15)),
+                    Expanded(
+                      child: ListView.builder(
+                        controller: scrollController,
+                        itemCount: filteredSpots.length,
+                        itemBuilder: (context, index) {
+                          final spot = filteredSpots[index];
+                          return ListTile(
+                            title: Text(spot['Name'] ?? '', style: const TextStyle(color: kTextDark, fontWeight: FontWeight.w600)),
+                            subtitle: Text(spot['Add'] ?? '', style: TextStyle(color: kTextDark.withOpacity(0.8))),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (_isFavorited(spot)) const Icon(Icons.star, color: Colors.amber),
+                                if (selectedSpots.any((s) => s['Name'] == spot['Name']))
+                                  const Padding(
+                                    padding: EdgeInsets.only(left: 4),
+                                    child: Icon(Icons.event_available, color: Colors.green),
                                   ),
-                                  onTap: () => _showSpotDialog(spot),
-                                  infoWindow: InfoWindow.noText,
+                              ],
+                            ),
+                            onTap: () async {
+                              final lat = double.tryParse(spot['Py'] ?? '');
+                              final lng = double.tryParse(spot['Px'] ?? '');
+                              if (_mapController != null && lat != null && lng != null) {
+                                final target = LatLng(lat, lng);
+                                await _mapController!.animateCamera(
+                                  CameraUpdate.newCameraPosition(
+                                    CameraPosition(target: target, zoom: 15),
+                                  ),
                                 );
-                              });
-                              await Future.delayed(const Duration(milliseconds: 180));
-                            }
-                            _showSpotDialog(spot);
-                          },
-                        );
-                      },
+                                setState(() {
+                                  _activeMarker = Marker(
+                                    markerId: MarkerId(spot['Name'] ?? '無名'),
+                                    position: target,
+                                    icon: BitmapDescriptor.defaultMarkerWithHue(
+                                      BitmapDescriptor.hueRed, // 🔴 紅色
+                                    ),
+                                    onTap: () => _showSpotDialog(spot),
+                                    infoWindow: InfoWindow.noText,
+                                  );
+                                });
+                                await Future.delayed(const Duration(milliseconds: 180));
+                              }
+                              _showSpotDialog(spot);
+                            },
+                          );
+                        },
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             );
           },
         ),
-
-
       ],
     ),
-    floatingActionButton: widget.browseOnly
-        ? null
-        : FloatingActionButton.extended(
-            onPressed: selectedSpots.isNotEmpty
-                ? () {
-                    Navigator.pop(context, {
-                      'selectedSpots': selectedSpots,
-                      'dayIndex': widget.dayIndex,
-                    });
-                  }
-                : null,
-            icon: const Icon(Icons.check),
-            label: Text('完成 (${selectedSpots.length})'),
-          ),
-  );
-}
+    floatingActionButton: widget.browseOnly ? null : FloatingActionButton.extended(
+      backgroundColor: kAccent,
+      foregroundColor: Colors.white,
+      onPressed: selectedSpots.isNotEmpty ? () {
+        Navigator.pop(context, {'selectedSpots': selectedSpots, 'dayIndex': widget.dayIndex});
+      } : null,
+      icon: const Icon(Icons.check),
+      label: Text('完成 (${selectedSpots.length})'), // 刪除自訂顏色，跟隨 foregroundColor=白
+    ),
+    );
+  }
 
 
 
 
   Widget buildLegend() {
-  return Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-    child: Row(
-      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-      children: [
-        legendItem(Colors.green, '加入行程'),
-        legendItem(Colors.yellow, '收藏'),
-        legendItem(Colors.red, '一般景點'),
-      ],
-    ),
-  );
-}
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          legendItem(Colors.green, '加入行程'),
+          legendItem(Colors.yellow, '收藏'),
+          legendItem(Colors.red, '一般景點'),
+        ],
+      ),
+    );
+  }
 
-Widget legendItem(Color color, String label) {
-  return Row(
-    children: [
-      Icon(Icons.place, color: color),
-      const SizedBox(width: 4),
-      Text(label),
-    ],
-  );
-}
+  Widget legendItem(Color color, String label) {
+    return Row(
+      children: [
+        Icon(Icons.place, color: color),
+        const SizedBox(width: 4),
+        Text(label, style: const TextStyle(color: kTextDark)),
+      ],
+    );
+  }
+
 
 
 

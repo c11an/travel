@@ -278,8 +278,16 @@ class _TravelDayPageState extends State<TravelDayPage>
               if (duration <= 0 || currentTime > 20) {
                 debugPrint("❌ 景點 '$name' 資料錯誤或時間超出範圍");
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('❗ 景點 "$name" 時間格式錯誤或超過顯示範圍')),
+                  SnackBar(
+                    content: Text('❗ 景點 "$name" 時間格式錯誤或超過顯示範圍',style: TextStyle(color: Colors.white)),
+                    backgroundColor: kAccent,
+                    behavior: SnackBarBehavior.floating,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    margin: const EdgeInsets.all(12),
+                    duration: const Duration(seconds: 2),
+                  ),
                 );
+
                 continue;
               }
 
@@ -334,10 +342,17 @@ class _TravelDayPageState extends State<TravelDayPage>
     } catch (e, stack) {
       debugPrint("❗ 發生錯誤：$e");
       debugPrint("🔍 堆疊追蹤：$stack");
-
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('❗ 發生錯誤，請稍後再試')),
+        SnackBar(
+          content: const Text('❗ 發生錯誤，請稍後再試', style: TextStyle(color: Colors.white)),
+          backgroundColor: kAccent,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          margin: const EdgeInsets.all(12),
+          duration: const Duration(seconds: 2),
+        ),
       );
+
     }
   }
 
@@ -451,8 +466,16 @@ class _TravelDayPageState extends State<TravelDayPage>
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('✅ 行程已儲存並同步到後端')),
+        SnackBar(
+          content: const Text('✅ 行程已儲存並同步到後端', style: TextStyle(color: Colors.white)),
+          backgroundColor: kAccent,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          margin: const EdgeInsets.all(12),
+          duration: const Duration(seconds: 2),
+        ),
       );
+
 
       // 回傳給上一頁（若需要）
       Navigator.of(context).pushReplacement(
@@ -463,8 +486,16 @@ class _TravelDayPageState extends State<TravelDayPage>
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('❌ 儲存或同步失敗：${e.toString()}')),
+        SnackBar(
+          content: Text('❌ 儲存或同步失敗：${e.toString()}', style: TextStyle(color: Colors.white)),
+          backgroundColor: kAccent,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          margin: const EdgeInsets.all(12),
+          duration: const Duration(seconds: 2),
+        ),
       );
+
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
@@ -482,34 +513,43 @@ class _TravelDayPageState extends State<TravelDayPage>
     final desc = spot['Description'] ?? '';
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(name),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (desc.isNotEmpty) Text("📖 $desc"),
-            if (address.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: 8.0),
-                child: Text("📍 地址：$address"),
-              ),
+      builder: (_) => Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: const ColorScheme.light(
+            primary: kAccent,
+            onPrimary: Colors.white,
+            surface: kCardBase,
+            onSurface: kTextDark,
+          ),
+        ),
+        child: AlertDialog(
+          backgroundColor: kCardBase,
+          title: Text('標題', style: const TextStyle(color: kTextDark, fontWeight: FontWeight.bold)),
+          content: Text('內容', style: const TextStyle(color: kTextDark)),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('關閉', style: TextStyle(color: kAccent)),
+            ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("關閉"),
-          ),
-        ],
       ),
     );
+
   }
 
   void _showDeletedMessage() {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('🗑️ 景點已刪除')),
-    );
+  SnackBar(
+    content: const Text('🗑️ 景點已刪除', style: TextStyle(color: Colors.white)),
+    backgroundColor: kAccent,
+    behavior: SnackBarBehavior.floating,
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    margin: const EdgeInsets.all(12),
+    duration: const Duration(seconds: 2),
+  ),
+);
+
   }
 
   int _currentDayIndex = 0; // ✅ 新增：用來追蹤目前選擇的日期
@@ -526,31 +566,28 @@ class _TravelDayPageState extends State<TravelDayPage>
       child: Scaffold(
         backgroundColor: kBgCream, // ✅ 背景
         appBar: AppBar(
-          title: Text('🛢️ ${widget.tripName}'),
-
-          // fromAiResult 時把左上角返回鍵拿掉
+          backgroundColor: kBgCream,
+          elevation: 0,
+          iconTheme: const IconThemeData(color: kTextDark),
+          title: Text(
+            '🛢️ ${widget.tripName}', style: const TextStyle(color: kTextDark, fontWeight: FontWeight.bold),
+          ),
           automaticallyImplyLeading: !widget.fromAiResult,
-
           bottom: TabBar(
             controller: _tabController,
             isScrollable: true,
-            onTap: (index) {
-              setState(() {
-                _currentDayIndex = index;
-              });
-            },
+            indicatorColor: kAccent,
+            labelColor: kTextDark,
+            unselectedLabelColor: kTextDark.withOpacity(0.7),
             tabs: List.generate(dayCount, (i) => Tab(text: 'Day ${i + 1}')),
+            onTap: (index) => setState(() => _currentDayIndex = index),
           ),
-
-          // 右上角 Home（只在 fromAiResult 時出現）
           actions: [
             if (widget.fromAiResult)
               IconButton(
-                icon: const Icon(Icons.home_outlined),
+                icon: const Icon(Icons.home_outlined, color: kTextDark),
                 tooltip: '回首頁',
                 onPressed: () {
-                  // 回首頁並清空路由堆疊
-                  // 如果你有命名路由（如 '/home' 或 '/'），可以改用 pushNamedAndRemoveUntil
                   Navigator.of(context).pushAndRemoveUntil(
                     MaterialPageRoute(builder: (_) => const HomePage()),
                     (route) => false,
@@ -560,6 +597,7 @@ class _TravelDayPageState extends State<TravelDayPage>
           ],
         ),
 
+
         body: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -568,8 +606,7 @@ class _TravelDayPageState extends State<TravelDayPage>
               color: Colors.blue.shade50,
               padding: const EdgeInsets.all(12),
               child: Text(
-                '旅遊期間：$tripDuration',
-                style: const TextStyle(fontWeight: FontWeight.bold,color: kTextDark),
+                '旅遊期間：$tripDuration', style: const TextStyle(color: kTextDark),
               ),
             ),
             Expanded(
@@ -598,20 +635,32 @@ class _TravelDayPageState extends State<TravelDayPage>
                         child: Row(
                           children: [
                             if (!widget.readOnly)
-                              Expanded(
+                              Expanded( 
                                 child: ElevatedButton.icon(
                                   onPressed: () => _exploreAndAddSpots(dayIndex),
-                                  icon: const Icon(Icons.add_location_alt),
-                                  label: const Text("探索新增景點"),
+                                  icon: const Icon(Icons.add_location_alt, color: Colors.white),
+                                  label: const Text("探索新增景點", style: TextStyle(color: Colors.white)),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: kAccent,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                  ),
                                 ),
+
                               ),
                             if (!widget.readOnly) const SizedBox(width: 12),
                             Expanded(
                               child: ElevatedButton.icon(
                                 onPressed: () => _showMap(dayIndex),
-                                icon: const Icon(Icons.map),
-                                label: const Text("在地圖查看"),
+                                icon: const Icon(Icons.map, color: kTextDark),
+                                label: const Text("在地圖查看", style: TextStyle(color: kTextDark)),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: kCardBase,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                ),
                               ),
+
                             ),
                             if (!widget.readOnly) const SizedBox(width: 12),
 
@@ -653,7 +702,7 @@ class _TravelDayPageState extends State<TravelDayPage>
                                           height: blockHeight,
                                           width: 80,
                                           child: Center(
-                                            child: Text('$hour:00'),
+                                            child: Text('$hour:00', style: const TextStyle(color: kTextDark)),
                                           ),
                                         );
                                       }),
@@ -762,7 +811,7 @@ class _TravelDayPageState extends State<TravelDayPage>
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : const Icon(Icons.save),
-                    label: Text(_isSaving ? "儲存中..." : "儲存行程"),
+                    label: Text(_isSaving ? "儲存中..." : "儲存行程", style: const TextStyle(color: Colors.white)),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: kAccent,
                       foregroundColor: Colors.white,
@@ -932,8 +981,16 @@ class _TravelDayPageState extends State<TravelDayPage>
             dailySpots[dayIndex].remove(spot);
           });
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('🗑️ 已刪除 $name')),
+            SnackBar(
+              content: Text('🗑️ 已刪除 $name', style: TextStyle(color: Colors.white)),
+              backgroundColor: kAccent,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              margin: const EdgeInsets.all(12),
+              duration: const Duration(seconds: 2),
+            ),
           );
+
         }
       },
       child: GestureDetector(
@@ -947,157 +1004,219 @@ class _TravelDayPageState extends State<TravelDayPage>
 
   // 顯示簡化版景點資訊 Dialog（只有關閉與資訊按鈕）
   void _showSpotInfoDialog(Map<String, String> spot) {
+    // 解析圖片（支援 JSON 欄位或直接 URL）
     String imageUrl = '';
     try {
       final pictureField = spot['Picture1'];
       if (pictureField != null && pictureField.isNotEmpty) {
         if (pictureField.trim().startsWith('{')) {
           final parsed = json.decode(pictureField);
-          imageUrl = parsed['src'] ?? '';
+          imageUrl = (parsed['src'] ?? '').toString();
         } else if (pictureField.startsWith('http')) {
           imageUrl = pictureField;
         }
       }
     } catch (e) {
-      print('⚠️ 圖片處理錯誤: $e');
+      debugPrint('⚠️ 圖片處理錯誤: $e');
       imageUrl = '';
     }
+
+    final name  = (spot['Name'] ?? '無名稱').trim();
+    final add   = (spot['Add'] ?? '').trim();
+    final desc  = (spot['Toldescribe']?.trim().isNotEmpty ?? false)
+        ? spot['Toldescribe']!.trim()
+        : (spot['Description']?.trim().isNotEmpty ?? false)
+            ? spot['Description']!.trim()
+            : '❌ 沒有描述資料';
 
     showDialog(
       context: context,
       builder: (context) {
-        final description = (spot['Toldescribe']?.trim().isNotEmpty ?? false)
-            ? spot['Toldescribe']
-            : (spot['Description'] ?? '❌ 沒有描述資料');
-
-        return AlertDialog(
-          title: Text(spot['Name'] ?? '無名稱'),
-          content: SingleChildScrollView(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 350), // 避免過高
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if ((spot['Add'] ?? '').isNotEmpty)
-                    Text("📍 ${spot['Add']}")
-                  else
-                    const Text("📍 無地址"),
-                  const SizedBox(height: 12),
-                  if (imageUrl.startsWith('http'))
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: AspectRatio(
-                        aspectRatio: 16 / 9, // 穩定比例
-                        child: CachedNetworkImage(
-                          imageUrl: imageUrl,
-                          fit: BoxFit.cover,
-                          placeholder: (context, url) =>
-                              const Center(child: CircularProgressIndicator()),
-                          errorWidget: (context, url, error) =>
-                              const Icon(Icons.error),
-                        ),
-                      ),
-                    )
-                  else
-                    const Text("❌ 無圖片"),
-                ],
-              ),
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: kAccent,
+              onPrimary: Colors.white,
+              surface: kCardBase,
+              onSurface: kTextDark,
             ),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text("關閉"),
-            ),
-            TextButton(
-              onPressed: () {
-                final lat = spot['Py'];
-                final lng = spot['Px'];
-                if (lat != null && lng != null) {
-                  final url =
-                      'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng&travelmode=driving';
-                  launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-                }
-              },
-              child: const Text('🧭 導航'),
-            ),
-            TextButton(
-              onPressed: () {
-                _toggleFavorite(spot);
-                Navigator.pop(context);
-              },
-              child: Text(_isFavorited(spot) ? '⭐ 移除收藏' : '⭐ 加入收藏'),
-            ),
-            TextButton(
-              onPressed: () {
-                final longDesc = description;
-                showDialog(
-                  context: context,
-                  builder: (_) => AlertDialog(
-                    title: const Text("📘 景點資訊"),
-                    content: SingleChildScrollView(
-                      child: Text(longDesc!),
+          child: AlertDialog(
+            backgroundColor: kCardBase,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: Text(name, style: const TextStyle(color: kTextDark, fontWeight: FontWeight.bold)),
+            content: SingleChildScrollView(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 420),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // 地址
+                    Text(
+                      add.isNotEmpty ? '📍 $add' : '📍 無地址',
+                      style: const TextStyle(color: kTextDark),
                     ),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: const Text("關閉"),
-                      ),
-                    ],
-                  ),
-                );
-              },
-              child: const Text("📘 資訊"),
+                    const SizedBox(height: 12),
+                    // 圖片
+                    if (imageUrl.startsWith('http'))
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: AspectRatio(
+                          aspectRatio: 16 / 9,
+                          child: CachedNetworkImage(
+                            imageUrl: imageUrl,
+                            fit: BoxFit.cover,
+                            placeholder: (_, __) => const Center(child: CircularProgressIndicator()),
+                            errorWidget: (_, __, ___) => const Icon(Icons.broken_image),
+                          ),
+                        ),
+                      )
+                    else
+                      const Text('❌ 無圖片', style: TextStyle(color: kTextDark)),
+                    const SizedBox(height: 12),
+                    // 簡述
+                    Text(
+                      desc,
+                      style: const TextStyle(color: kTextDark),
+                    ),
+                  ],
+                ),
+              ),
             ),
-          ],
+            actions: [
+              // 收藏 / 取消收藏
+              TextButton(
+                onPressed: () {
+                  _toggleFavorite(spot);
+                  Navigator.pop(context);
+                },
+                child: Text(
+                  _isFavorited(spot) ? '⭐ 移除收藏' : '⭐ 加入收藏',
+                  style: const TextStyle(color: kTextDark),
+                ),
+              ),
+              // 導航
+              TextButton(
+                onPressed: () async {
+                  final lat = spot['Py'];
+                  final lng = spot['Px'];
+                  if (lat != null && lng != null && lat.isNotEmpty && lng.isNotEmpty) {
+                    final url = Uri.parse(
+                      'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng&travelmode=driving',
+                    );
+                    await launchUrl(url, mode: LaunchMode.externalApplication);
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: const Text('❗ 缺少座標，無法導航', style: TextStyle(color: Colors.white)),
+                        backgroundColor: kAccent,
+                        behavior: SnackBarBehavior.floating,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        margin: const EdgeInsets.all(12),
+                        duration: const Duration(seconds: 2),
+                      ),
+                    );
+                  }
+                },
+                child: const Text('🧭 導航', style: TextStyle(color: kTextDark)),
+              ),
+              // 關閉
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('關閉', style: TextStyle(color: kTextDark)),
+              ),
+            ],
+          ),
         );
       },
     );
   }
 
 
-
-
-
-
-
-
-
   void _editDurationDialog(Map<String, String> spot) {
     final controller = TextEditingController(text: spot['Duration'] ?? '1');
+
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text("設定停留時間"),
-        content: TextField(
-          controller: controller,
-          keyboardType: TextInputType.number,
-          decoration: const InputDecoration(labelText: '停留時間（小時）'),
+      builder: (_) => Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: const ColorScheme.light(
+            primary: kAccent,       // 主色：拿鐵咖啡
+            onPrimary: Colors.white,
+            surface: kCardBase,     // 對話框底色：奶茶棕
+            onSurface: kTextDark,   // 文字色：深棕
+          ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              final value = int.tryParse(controller.text);
-              if (value != null && value > 0) {
-                setState(() {
-                  spot['Duration'] = value.toString();
-                  _generateTransports();
-                });
-                Navigator.pop(context);
-              } else {
-                // 顯示錯誤訊息
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('❗ 請輸入有效的整數（大於 0）')),
-                );
-              }
-            },
-            child: const Text("確認"),
-          )
-        ],
+        child: AlertDialog(
+          backgroundColor: kCardBase,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text(
+            "設定停留時間",
+            style: TextStyle(
+              color: kTextDark,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          content: TextField(
+            controller: controller,
+            keyboardType: TextInputType.number,
+            style: const TextStyle(color: kTextDark),
+            decoration: InputDecoration(
+              labelText: '停留時間（小時）',
+              labelStyle: const TextStyle(color: kTextDark),
+              filled: true,
+              fillColor: kBgCream.withOpacity(0.8),
+              enabledBorder: OutlineInputBorder(
+                borderSide: const BorderSide(color: kTextDark),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderSide: const BorderSide(color: kAccent, width: 2),
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                final value = int.tryParse(controller.text);
+                if (value != null && value > 0) {
+                  setState(() {
+                    spot['Duration'] = value.toString();
+                    _generateTransports();
+                  });
+                  Navigator.pop(context);
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: const Text(
+                        '❗ 請輸入有效的整數（大於 0）',style: TextStyle(color: Colors.white),
+                      ),
+                      backgroundColor: kAccent,
+                      behavior: SnackBarBehavior.floating,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      margin: const EdgeInsets.all(12),
+                      duration: const Duration(seconds: 2),
+                    ),
+                  );
+                }
+              },
+              child: const Text(
+                "確認",
+                style: TextStyle(
+                  color: kAccent,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
+
 
   Widget _buildDropTargets(int dayIndex) {
     return Positioned.fill(

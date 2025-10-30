@@ -6,6 +6,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:travel/personalization_controller.dart'; // 第4/5步控制器
 import 'package:travel/api.dart';                        // 你先前建的 ApiClient
 
+// ===== 全站統一：奶茶文青風配色 =====
+const kBgCream     = Color(0xFFFAF3E0); // 背景：淡奶茶米色
+const kCardBase    = Color(0xFFEAD7B7); // 卡片底：奶茶棕
+const kPressedTint = Color(0xFFD6C2A1); // 按下 hover
+const kTextDark    = Color(0xFF4E342E); // 深棕文字
+const kAccent      = Color(0xFFB48A60); // 拿鐵咖啡主色
 
 class AIRecommendResultPage extends StatefulWidget {
   final String? city;
@@ -274,10 +280,27 @@ class _AIRecommendResultPageState extends State<AIRecommendResultPage> {
       debugPrint(stackTrace.toString());
       showDialog(
         context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('⚠️ 發生錯誤'),
-          content: Text('解析 GPT 行程或跳轉頁面時發生錯誤：\n$e'),
-          actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('我知道了'))],
+        builder: (context) => Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: kAccent,
+              onPrimary: Colors.white,
+              surface: kCardBase,
+              onSurface: kTextDark,
+            ),
+          ),
+          child: AlertDialog(
+            backgroundColor: kCardBase,
+            title: const Text('⚠️ 發生錯誤', style: TextStyle(color: kTextDark, fontWeight: FontWeight.bold)),
+            content: Text('解析 GPT 行程或跳轉頁面時發生錯誤：\n$e',
+                style: const TextStyle(color: kTextDark)),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('我知道了', style: TextStyle(color: kAccent)),
+              ),
+            ],
+          ),
         ),
       );
     }
@@ -313,8 +336,15 @@ class _AIRecommendResultPageState extends State<AIRecommendResultPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: kBgCream,
       appBar: AppBar(
-        title: const Text('AI推薦結果'),
+        backgroundColor: kBgCream,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: kTextDark),
+        title: const Text(
+          'AI推薦結果',
+          style: TextStyle(color: kTextDark, fontWeight: FontWeight.bold),
+        ),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -322,25 +352,25 @@ class _AIRecommendResultPageState extends State<AIRecommendResultPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // 📋 推薦條件簡述
-            Text('行程名稱：${widget.tripName}'),
-            Text('出發地：${widget.city ?? "未指定"}'),
+            Text('行程名稱：${widget.tripName}', style: const TextStyle(color: kTextDark)),
+            Text('出發地：${widget.city ?? "未指定"}', style: const TextStyle(color: kTextDark)),
             if (widget.startDate != null && widget.endDate != null)
               Text(
                 '旅遊時間：${DateFormat('yyyy/MM/dd').format(widget.startDate!)} ~ ${DateFormat('yyyy/MM/dd').format(widget.endDate!)}',
-              )
+               style: const TextStyle(color: kTextDark))
 
             else
-              const Text('旅遊時間：未指定'),
-              Text('預算：${widget.budget?.round() ?? 0} 元'),
+              const Text('旅遊時間：未指定', style: const TextStyle(color: kTextDark)),
+              Text('預算：${widget.budget?.round() ?? 0} 元', style: const TextStyle(color: kTextDark)),
               //Text('交通方式：${widget.transport ?? "不限"}'),
-              Text('旅遊類型：${widget.types?.join(', ') ?? "不限"}'),
+              Text('旅遊類型：${widget.types?.join(', ') ?? "不限"}', style: const TextStyle(color: kTextDark)),
               const SizedBox(height: 16),
             
             if ((widget.mood ?? '').trim().isNotEmpty)
-              Text('🧠 GPT 已考慮您的心情：${widget.mood}'),
+              Text('🧠 GPT 已考慮您的心情：${widget.mood}', style: const TextStyle(color: kTextDark)),
 
             if ((widget.need ?? '').trim().isNotEmpty)
-              Text('🎯 GPT 已考慮您的需求：${widget.need}'),
+              Text('🎯 GPT 已考慮您的需求：${widget.need}', style: const TextStyle(color: kTextDark)),
 
 
             // 🔮 GPT 推薦行程
@@ -353,8 +383,8 @@ class _AIRecommendResultPageState extends State<AIRecommendResultPage> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
-                  borderRadius: BorderRadius.circular(8),
+                  color: kCardBase.withOpacity(0.6),
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -369,23 +399,25 @@ class _AIRecommendResultPageState extends State<AIRecommendResultPage> {
               children: [
                 Expanded(
                   child: ElevatedButton.icon(
-                    onPressed: _convertGptToTravelPage,                    
-                    icon: const Icon(Icons.calendar_month),
-                    label: const Text('查看AI推薦行程'),
+                    onPressed: _convertGptToTravelPage,
+                    icon: const Icon(Icons.calendar_month, color: Colors.white),
+                    label: const Text('查看AI推薦行程', style: TextStyle(color: Colors.white)),
                     style: ElevatedButton.styleFrom(
+                      backgroundColor: kAccent,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       padding: const EdgeInsets.symmetric(vertical: 14),
-                    ),      
+                    ),
                   ),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
                   child: ElevatedButton.icon(
-                    onPressed: () {
-                      Navigator.pop(context);
-                    },
-                    icon: const Icon(Icons.refresh),
-                    label: const Text('重新推薦'),
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.refresh, color: kTextDark),
+                    label: const Text('重新推薦', style: TextStyle(color: kTextDark)),
                     style: ElevatedButton.styleFrom(
+                      backgroundColor: kCardBase.withOpacity(0.8),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       padding: const EdgeInsets.symmetric(vertical: 14),
                     ),
                   ),
