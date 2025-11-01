@@ -165,6 +165,96 @@ class _TravelInputPageState extends State<TravelInputPage> with TickerProviderSt
     _loadFavorites();
   }
 
+  // ====== 新增：本地資訊視窗（不上網） ======
+  String _firstNonEmpty(Map<String, String> m, List<String> keys) {
+    for (final k in keys) {
+      final v = m[k];
+      if (v != null && v.trim().isNotEmpty) return v.trim();
+    }
+    return '';
+  }
+
+  void _openInfo(Map<String, String> spot) {
+    _showInfoDialog(spot);
+  }
+
+  void _showInfoDialog(Map<String, String> spot) {
+    final name   = _firstNonEmpty(spot, ['Name','name']);
+    final city   = _firstNonEmpty(spot, ['Region','City','city']);
+    final addr   = _firstNonEmpty(spot, ['Add','Address','address']);
+    final open   = _firstNonEmpty(spot, ['Opentime','OpenTime','OpeningHours','營業時間']);
+    final tel    = _firstNonEmpty(spot, ['Tel','TEL','Phone','電話']);
+    final ticket = _firstNonEmpty(spot, ['Ticketinfo','Ticket','票價','收費']);
+    final desc   = _firstNonEmpty(spot, [
+      'Toldescribe','Description','DescriptionDetail','Summary','Intro','intro','content','描述','簡介'
+    ]);
+
+    showDialog(
+      context: context,
+      builder: (_) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        child: Container(
+          decoration: BoxDecoration(color: kBgCream, borderRadius: BorderRadius.circular(18)),
+          padding: const EdgeInsets.fromLTRB(16,16,16,12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                name.isNotEmpty ? name : '景點資訊',
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: kTextDark, fontSize: 18, fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: 10),
+              if (city.isNotEmpty || addr.isNotEmpty || open.isNotEmpty || tel.isNotEmpty || ticket.isNotEmpty)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(color: Colors.white.withOpacity(.6), borderRadius: BorderRadius.circular(12)),
+                  child: Text(
+                    [
+                      if (city.isNotEmpty || addr.isNotEmpty) '📍 ${[city, addr].where((e)=>e.isNotEmpty).join(" · ")}',
+                      if (open.isNotEmpty)   '🕒 $open',
+                      if (tel.isNotEmpty)    '☎️ $tel',
+                      if (ticket.isNotEmpty) '💵 $ticket',
+                    ].join('\n'),
+                    style: const TextStyle(color: kTextDark, height: 1.4),
+                  ),
+                ),
+              if (desc.isNotEmpty) const SizedBox(height: 12),
+              Flexible(
+                child: SingleChildScrollView(
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(color: Colors.white.withOpacity(.6), borderRadius: BorderRadius.circular(12)),
+                    child: Text(
+                      desc.isNotEmpty ? desc : '尚無介紹內容',
+                      style: const TextStyle(color: kTextDark, height: 1.5),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity, height: 44,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: kAccent,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: const Text('關閉', style: TextStyle(color: Colors.white)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+// ====== 本地資訊視窗 End ======
+
+
   Widget _buildTripList() {
     if (trips.isEmpty) {
       return const Center(
@@ -257,6 +347,7 @@ class _TravelInputPageState extends State<TravelInputPage> with TickerProviderSt
                   fontWeight: FontWeight.bold, color: kTextDark)),
           children: spots.map((spot) {
             return ListTile(
+              onTap: () => _openInfo(spot), // ✅ 點擊跳出本地資訊視窗
               leading: const Icon(Icons.place, color: kAccent),
               title: Text(spot['Name'] ?? '無名稱',
                   style: const TextStyle(color: kTextDark)),
@@ -272,6 +363,8 @@ class _TravelInputPageState extends State<TravelInputPage> with TickerProviderSt
       }).toList(),
     );
   }
+
+  
 
   @override
   Widget build(BuildContext context) {
@@ -299,13 +392,6 @@ class _TravelInputPageState extends State<TravelInputPage> with TickerProviderSt
           Padding(padding: const EdgeInsets.all(16), child: _buildTripList()),
           Padding(padding: const EdgeInsets.all(16), child: _buildFavoriteSpots()),
         ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _addTrip,
-        backgroundColor: kAccent,
-        foregroundColor: Colors.white,
-        label: const Text("新增行程"),
-        icon: const Icon(Icons.add),
       ),
     );
   }

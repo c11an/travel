@@ -5,10 +5,10 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'setting_page.dart';
-import 'follow_list_page.dart';
 import 'login.dart';
 import 'favorites_spot_page.dart';
 import 'favorites_trip_page.dart';
+import 'travel_day_page.dart';
 
 // ===== 文青奶茶色系（與其他頁一致）=====
 const kBgCream     = Color(0xFFFAF3E0); // 背景：淡奶茶米色
@@ -24,46 +24,45 @@ class ProfilePage extends StatefulWidget {
   State<ProfilePage> createState() => _ProfilePageState();
 }
 
-class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStateMixin {
+class _ProfilePageState extends State<ProfilePage>
+    with SingleTickerProviderStateMixin {
   File? _avatarImage;
-  List<Map<String, dynamic>> uploadedTrips = [];
-  List<Map<String, dynamic>> favoriteCommunityTrips = [];
-
-  final List<String> followingUsers = ['Alice', 'Bob', 'Charlie'];
-  final List<String> followerUsers = ['David', 'Emma'];
-
+  List<Map<String, dynamic>> myTrips = []; // 個人行程
   late TabController _tabController;
-  int get followingCount => followingUsers.length;
-  int get followerCount => followerUsers.length;
-  int favoriteSpotCount = 15;
   String? _nickname;
 
   @override
   void initState() {
     super.initState();
-    _loadUploadedTrips();
+    _tabController = TabController(length: 2, vsync: this); // ✅ 先建立
+    _loadMyTrips();
     _loadAvatarImage();
     _loadNickname();
-    _tabController = TabController(length: 2, vsync: this);
   }
 
-  Future<void> _loadUploadedTrips() async {
+  @override
+  void dispose() {
+    _tabController.dispose(); // ✅ 釋放，避免 _dependents.isEmpty 斷言
+    super.dispose();
+  }
+
+  Future<void> _loadMyTrips() async {
     final prefs = await SharedPreferences.getInstance();
-    final communityList = prefs.getStringList('community_trips') ?? [];
-    final favoriteCommunityList = prefs.getStringList('favorite_community_trips') ?? [];
+    final tripListString = prefs.getStringList('trip_list') ?? [];
+    if (!mounted) return;
     setState(() {
-      uploadedTrips = communityList.map((e) => jsonDecode(e) as Map<String, dynamic>).toList();
-      favoriteCommunityTrips = favoriteCommunityList.map((e) => jsonDecode(e) as Map<String, dynamic>).toList();
+      myTrips = tripListString
+          .map((e) => jsonDecode(e) as Map<String, dynamic>)
+          .toList();
     });
   }
 
   Future<void> _loadAvatarImage() async {
     final prefs = await SharedPreferences.getInstance();
     final avatarPath = prefs.getString('avatarPath');
+    if (!mounted) return;
     if (avatarPath != null && File(avatarPath).existsSync()) {
-      setState(() {
-        _avatarImage = File(avatarPath);
-      });
+      setState(() => _avatarImage = File(avatarPath));
     }
   }
 
@@ -73,20 +72,18 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
     if (pickedFile != null) {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('avatarPath', pickedFile.path);
+      if (!mounted) return;
       setState(() => _avatarImage = File(pickedFile.path));
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('✅ 頭像更新成功！')),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('✅ 頭像更新成功！')),
+      );
     }
   }
 
   Future<void> _loadNickname() async {
     final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _nickname = prefs.getString('nickname') ?? '旅人';
-    });
+    if (!mounted) return;
+    setState(() => _nickname = prefs.getString('nickname') ?? '旅人');
   }
 
   void _logout() async {
@@ -96,48 +93,98 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
         title: const Text('確認登出'),
         content: const Text('確定要登出嗎？'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('取消')),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('確定')),
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('取消')),
+          TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('確定')),
         ],
       ),
     );
     if (confirmed == true) {
       final prefs = await SharedPreferences.getInstance();
       await prefs.clear();
-      if (mounted) {
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(
-            builder: (_) => const LoginPage(),
-            settings: const RouteSettings(arguments: 'logged_out'),
-          ),
-          (route) => false,
-        );
-      }
+      if (!mounted) return;
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(
+          builder: (_) => const LoginPage(),
+          settings: const RouteSettings(arguments: 'logged_out'),
+        ),
+        (route) => false,
+      );
     }
   }
 
   void _goToSettings() {
-    Navigator.push(context, MaterialPageRoute(builder: (context) => const SettingPage()));
+    Navigator.push(
+        context, MaterialPageRoute(builder: (_) => const SettingPage()));
   }
 
-  void _openFollowList(String title, List<String> users) {
-    Navigator.push(context, MaterialPageRoute(builder: (context) => FollowListPage(title: title, userList: users)));
+  DateTime _safeParseDate(dynamic v) {
+    try {
+      if (v is DateTime) return v;
+      if (v is String && v.isNotEmpty) return DateTime.parse(v);
+    } catch (_) {}
+    return DateTime.now();
   }
 
-  Widget _buildFavoriteBlock(String title, IconData icon, Color bg, Widget page) {
+  // 點個人行程卡片 → 跳到 TravelDayPage 檢視該行程
+  void _openTripDetail(Map<String, dynamic> trip) {
+    final start = _safeParseDate(trip['start_date']);
+    final end = _safeParseDate(trip['end_date']);
+
+    final rawDays = (trip['daily_spots'] as List?) ?? const [];
+    final initialSpots = rawDays
+        .map<List<Map<String, String>>>((day) => (day as List)
+            .map<Map<String, String>>(
+                (s) => Map<String, String>.from(s as Map))
+            .toList())
+        .toList();
+
+    final rawTrans = (trip['daily_transports'] as List?) ??
+        List.generate(initialSpots.length, (_) => <String>[]);
+    final initialTransports =
+        rawTrans.map<List<String>>((list) => List<String>.from(list)).toList();
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => TravelDayPage(
+          tripName: (trip['trip_name'] as String?)?.trim().isNotEmpty == true
+              ? trip['trip_name']
+              : '未命名行程',
+          startDate: start,
+          endDate: end,
+          budget: trip['budget'],
+          transport: trip['transport'],
+          initialSpots: initialSpots,
+          initialTransports: initialTransports,
+          readOnly: true,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFavoriteBlock(
+      String title, IconData icon, Color bg, Widget page) {
     return Expanded(
       child: GestureDetector(
-        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => page)),
+        onTap: () =>
+            Navigator.push(context, MaterialPageRoute(builder: (_) => page)),
         child: Container(
           height: 100,
-          decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(16)),
+          decoration: BoxDecoration(
+              color: bg, borderRadius: BorderRadius.circular(16)),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(icon, color: Colors.white, size: 32),
               const SizedBox(height: 8),
-              Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              Text(title,
+                  style: const TextStyle(
+                      color: Colors.white, fontWeight: FontWeight.bold)),
             ],
           ),
         ),
@@ -152,18 +199,20 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
       appBar: AppBar(
         backgroundColor: kBgCream,
         elevation: 0,
+        centerTitle: true, // ✅ 置中
         title: const Text('個人頁面',
-            style: TextStyle(color: kTextDark, fontWeight: FontWeight.bold)),
+            style:
+                TextStyle(color: kTextDark, fontWeight: FontWeight.bold)),
         iconTheme: const IconThemeData(color: kTextDark),
         actions: [
           IconButton(icon: const Icon(Icons.settings), onPressed: _goToSettings),
         ],
         bottom: TabBar(
-          controller: _tabController,
+          controller: _tabController, // ✅ 必須綁定
           indicatorColor: kAccent,
           labelColor: kTextDark,
           unselectedLabelColor: kTextDark,
-          tabs: const [Tab(text: '我的上傳'), Tab(text: '我的收藏')],
+          tabs: const [Tab(text: '我的行程'), Tab(text: '我的收藏')],
         ),
       ),
       body: Padding(
@@ -171,7 +220,7 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 頭像 + 暱稱
+            // 頭像 + 暱稱 + 登出
             Row(
               children: [
                 GestureDetector(
@@ -179,7 +228,9 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
                   child: CircleAvatar(
                     radius: 35,
                     backgroundColor: kCardBase,
-                    backgroundImage: _avatarImage != null ? FileImage(_avatarImage!) : null,
+                    backgroundImage: _avatarImage != null
+                        ? FileImage(_avatarImage!)
+                        : null,
                     child: _avatarImage == null
                         ? const Icon(Icons.person, size: 35, color: kTextDark)
                         : null,
@@ -190,38 +241,21 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(_nickname ?? '旅人',
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: kTextDark)),
-                    const Text('帳號資訊', style: TextStyle(color: kTextDark)),
+                        style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: kTextDark)),
+                    const Text('帳號資訊',
+                        style: TextStyle(color: kTextDark)),
                   ],
                 ),
                 const Spacer(),
-                // 登出鈕（可選）
                 TextButton.icon(
                   onPressed: _logout,
                   icon: const Icon(Icons.logout, color: kAccent, size: 18),
-                  label: const Text('登出', style: TextStyle(color: kAccent)),
-                  style: TextButton.styleFrom(
-                    foregroundColor: kAccent,
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 24),
-
-            // 追蹤/粉絲
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                GestureDetector(
-                  onTap: () => _openFollowList('我追蹤的人', followingUsers),
-                  child: Text('追蹤中：$followingCount',
-                      style: const TextStyle(fontSize: 16, color: kTextDark)),
-                ),
-                GestureDetector(
-                  onTap: () => _openFollowList('粉絲列表', followerUsers),
-                  child: Text('粉絲數：$followerCount',
-                      style: const TextStyle(fontSize: 16, color: kTextDark)),
+                  label:
+                      const Text('登出', style: TextStyle(color: kAccent)),
+                  style: TextButton.styleFrom(foregroundColor: kAccent),
                 ),
               ],
             ),
@@ -231,16 +265,27 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
             // Tab 內容
             Expanded(
               child: TabBarView(
-                controller: _tabController,
+                controller: _tabController, // ✅ 同一個 controller
                 children: [
-                  _buildTripList(uploadedTrips),
+                  // 我的行程（支援下拉更新）
+                  RefreshIndicator(
+                    color: kAccent,
+                    onRefresh: _loadMyTrips,
+                    child: _buildTripList(myTrips),
+                  ),
+                  // 我的收藏
                   Column(
                     children: [
                       Row(
                         children: [
-                          _buildFavoriteBlock('收藏景點', Icons.place, kAccent, const FavoritesSpotPage()),
+                          _buildFavoriteBlock('收藏景點', Icons.place, kAccent,
+                              const FavoritesSpotPage()),
                           const SizedBox(width: 16),
-                          _buildFavoriteBlock('收藏行程', Icons.map, kPressedTint, const FavoritesTripPage()),
+                          _buildFavoriteBlock(
+                              '收藏行程',
+                              Icons.map,
+                              kPressedTint,
+                              const FavoritesTripPage()),
                         ],
                       ),
                       const SizedBox(height: 20),
@@ -257,24 +302,42 @@ class _ProfilePageState extends State<ProfilePage> with SingleTickerProviderStat
 
   Widget _buildTripList(List<Map<String, dynamic>> trips) {
     if (trips.isEmpty) {
-      return const Center(child: Text('尚無行程', style: TextStyle(color: kTextDark)));
+      // 用 ListView 包一個空畫面，確保 RefreshIndicator 可下拉
+      return ListView(
+        children: [
+          SizedBox(height: 160),
+          Center(
+              child:
+                  Text('尚無行程', style: TextStyle(color: kTextDark))),
+        ],
+      );
     }
 
     return ListView.builder(
       itemCount: trips.length,
       itemBuilder: (context, index) {
         final trip = trips[index];
+        final title = (trip['trip_name'] as String?)?.trim().isNotEmpty == true
+            ? trip['trip_name'] as String
+            : '未命名行程';
+        final start = (trip['start_date'] ?? '').toString();
+        final end = (trip['end_date'] ?? '').toString();
+
         return Card(
           color: kCardBase,
           margin: const EdgeInsets.symmetric(vertical: 8),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           child: ListTile(
+            onTap: () => _openTripDetail(trip), // ✅ 點擊跳轉
             leading: const Icon(Icons.flight_takeoff, color: kAccent),
-            title: Text(trip['trip_name'] ?? '未命名行程',
-                style: const TextStyle(color: kTextDark, fontWeight: FontWeight.w600)),
-            subtitle: Text('📅 ${trip['start_date']} ~ ${trip['end_date']}',
+            title: Text(title,
+                style: const TextStyle(
+                    color: kTextDark, fontWeight: FontWeight.w600)),
+            subtitle: Text('📅 $start ~ $end',
                 style: const TextStyle(color: kTextDark)),
-            trailing: const Icon(Icons.chevron_right, color: kTextDark),
+            trailing:
+                const Icon(Icons.chevron_right, color: kTextDark),
           ),
         );
       },

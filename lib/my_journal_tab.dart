@@ -31,7 +31,9 @@ class _MyJournalTabState extends State<MyJournalTab> {
     final prefs = await SharedPreferences.getInstance();
     final tripListString = prefs.getStringList('trip_list') ?? [];
     setState(() {
-      trips = tripListString.map((e) => jsonDecode(e) as Map<String, dynamic>).toList();
+      trips = tripListString
+          .map((e) => jsonDecode(e) as Map<String, dynamic>)
+          .toList();
     });
   }
 
@@ -41,12 +43,38 @@ class _MyJournalTabState extends State<MyJournalTab> {
     await prefs.setStringList('trip_list', tripListString);
   }
 
-  void _openNotePage(int index) async {
+  /// 檢查是否已有任何心得（行程層級 note 或 daily_spots 內的 note/notes）
+  bool _hasAnyNote(Map<String, dynamic> trip) {
+    final tNote = (trip['note'] is String) ? (trip['note'] as String).trim() : '';
+    if (tNote.isNotEmpty) return true;
+
+    final daily = (trip['daily_spots'] as List?) ?? const [];
+    for (final day in daily) {
+      for (final spot in (day as List)) {
+        final m = Map<String, dynamic>.from(spot as Map);
+        final s1 = (m['note'] is String) ? (m['note'] as String).trim() : '';
+        final s2 = (m['notes'] is String) ? (m['notes'] as String).trim() : '';
+        if (s1.isNotEmpty || s2.isNotEmpty) return true;
+      }
+    }
+    return false;
+  }
+
+  /// 依照 readOnly 開啟心得頁：
+  /// - readOnly=false：撰寫/編輯心得，返回則更新 daily_spots
+  /// - readOnly=true：僅查看心得，不做更新
+  void _openNotePage(int index, {required bool readOnly}) async {
     final trip = trips[index];
+
     final List<List<Map<String, String>>> dailySpots =
         (trip['daily_spots'] as List)
-            .map<List<Map<String, String>>>((day) =>
-                (day as List).map<Map<String, String>>((s) => Map<String, String>.from(s)).toList())
+            .map<List<Map<String, String>>>(
+              (day) => (day as List)
+                  .map<Map<String, String>>(
+                    (s) => Map<String, String>.from(s as Map),
+                  )
+                  .toList(),
+            )
             .toList();
 
     final result = await Navigator.push(
@@ -54,45 +82,16 @@ class _MyJournalTabState extends State<MyJournalTab> {
       MaterialPageRoute(
         builder: (_) => TravelNotePage(
           allDailySpots: dailySpots,
-          readOnly: false,
+          readOnly: readOnly,
         ),
       ),
     );
 
-    if (result != null && result is List<List<Map<String, String>>>) {
+    if (!readOnly && result != null && result is List<List<Map<String, String>>>) {
       setState(() {
         trips[index]['daily_spots'] = result;
       });
       _saveTripsToStorage();
-    }
-  }
-
-  Future<void> _uploadToCommunity(Map<String, dynamic> trip) async {
-    final prefs = await SharedPreferences.getInstance();
-    final communityList = prefs.getStringList('community_trips') ?? [];
-
-    bool exists = communityList.any((e) {
-      final decoded = jsonDecode(e);
-      return decoded["trip_name"] == trip["trip_name"] &&
-             decoded["start_date"] == trip["start_date"];
-    });
-
-    if (exists) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          backgroundColor: kPressedTint,
-          content: const Text("⚠️ 此行程已經上傳過囉！", style: TextStyle(color: Colors.white)),
-        ),
-      );
-    } else {
-      communityList.add(jsonEncode(trip));
-      await prefs.setStringList('community_trips', communityList);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          backgroundColor: kAccent,
-          content: const Text("✅ 成功上傳到社群！", style: TextStyle(color: Colors.white)),
-        ),
-      );
     }
   }
 
@@ -108,7 +107,10 @@ class _MyJournalTabState extends State<MyJournalTab> {
           transport: trip['transport'],
           initialSpots: (trip['daily_spots'] as List)
               .map<List<Map<String, String>>>(
-                  (day) => (day as List).map<Map<String, String>>((s) => Map<String, String>.from(s)).toList())
+                (day) => (day as List)
+                    .map<Map<String, String>>((s) => Map<String, String>.from(s))
+                    .toList(),
+              )
               .toList(),
           initialTransports: (trip['daily_transports'] as List)
               .map<List<String>>((list) => List<String>.from(list))
@@ -132,6 +134,8 @@ class _MyJournalTabState extends State<MyJournalTab> {
         itemCount: trips.length,
         itemBuilder: (context, index) {
           final trip = trips[index];
+          final hasNote = _hasAnyNote(trip);
+
           return GestureDetector(
             onTap: () => _openTripDetail(trip),
             child: Card(
@@ -159,7 +163,7 @@ class _MyJournalTabState extends State<MyJournalTab> {
                         style: const TextStyle(color: kTextDark)),
                     const SizedBox(height: 8),
                     Text(
-                      "✏️ 心得：${trip["note"]?.isNotEmpty == true ? trip["note"] : "尚未撰寫"}",
+                      "✏️ 心得：${hasNote ? "已撰寫" : "尚未撰寫"}",
                       style: const TextStyle(color: kTextDark),
                     ),
                     const SizedBox(height: 12),
@@ -167,10 +171,15 @@ class _MyJournalTabState extends State<MyJournalTab> {
                       children: [
                         Expanded(
                           child: ElevatedButton.icon(
-                            onPressed: () => _openNotePage(index),
-                            icon: const Icon(Icons.edit_note, color: Colors.white),
-                            label: const Text("撰寫心得",
-                                style: TextStyle(color: Colors.white)),
+                            onPressed: () => _openNotePage(index, readOnly: hasNote),
+                            icon: Icon(
+                              hasNote ? Icons.visibility : Icons.edit_note,
+                              color: Colors.white,
+                            ),
+                            label: Text(
+                              hasNote ? "查看心得" : "撰寫心得",
+                              style: const TextStyle(color: Colors.white),
+                            ),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: kAccent,
                               shape: RoundedRectangleBorder(
@@ -180,22 +189,7 @@ class _MyJournalTabState extends State<MyJournalTab> {
                             ),
                           ),
                         ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: () => _uploadToCommunity(trip),
-                            icon: const Icon(Icons.upload, color: Colors.white),
-                            label: const Text("上傳到社群",
-                                style: TextStyle(color: Colors.white)),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: kPressedTint,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              elevation: 1,
-                            ),
-                          ),
-                        ),
+                        // ✅ 「上傳到社群」已移除
                       ],
                     )
                   ],
