@@ -306,16 +306,6 @@ class _AIRecommendResultPageState extends State<AIRecommendResultPage> {
     }
   }
 
-
-
-
-
-
-
-
-
-
-
   // ✅ 模糊比對相似度：Jaccard-like 比對
   double _stringSimilarity(String a, String b) {
     final s1 = a.toLowerCase();

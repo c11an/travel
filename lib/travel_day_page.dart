@@ -424,10 +424,10 @@ class _TravelDayPageState extends State<TravelDayPage>
       body: jsonEncode(payload),
     );
 
-    if (res.statusCode < 200 || res.statusCode >= 300) {
-      debugPrint("❌ 後端錯誤: ${res.statusCode} ${res.body}");
-      throw Exception('後端回應 ${res.statusCode}');
-    }
+    // if (res.statusCode < 200 || res.statusCode >= 300) {
+    //   debugPrint("❌ 後端錯誤: ${res.statusCode} ${res.body}");
+    //   throw Exception('後端回應 ${res.statusCode}');
+    // }
   }
 
 
@@ -478,9 +478,16 @@ class _TravelDayPageState extends State<TravelDayPage>
 
 
       // 回傳給上一頁（若需要）
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const TravelInputPage()),
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(
+          builder: (_) => const TravelInputPage(
+            initialTabIndex: 0,   // 進到「行程規劃」分頁
+            showHomeButton: true, // 左上顯示「首頁」按鈕、沒有返回鍵
+          ),
+        ),
+        (route) => false,
       );
+
 
       
     } catch (e) {

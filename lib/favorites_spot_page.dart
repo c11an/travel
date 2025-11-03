@@ -11,7 +11,8 @@ const kTextDark    = Color(0xFF4E342E); // 文字：深棕
 const kAccent      = Color(0xFFB48A60); // 主色：拿鐵咖啡
 
 class FavoritesSpotPage extends StatefulWidget {
-  const FavoritesSpotPage({super.key});
+  final bool isEmbedded;
+  const FavoritesSpotPage({super.key, this.isEmbedded = false});
 
   @override
   State<FavoritesSpotPage> createState() => _FavoritesSpotPageState();
@@ -316,10 +317,104 @@ class _FavoritesSpotPageState extends State<FavoritesSpotPage> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildBody(BuildContext context) {
     final theme = Theme.of(context);
 
+    if (_loading) {
+      return const Center(
+        child: CircularProgressIndicator(
+          valueColor: AlwaysStoppedAnimation(kAccent),
+        ),
+      );
+    }
+    if (cityGroupedSpots.isEmpty) {
+      return const _EmptyState();
+    }
+
+    return RefreshIndicator(
+      color: kAccent,
+      onRefresh: _loadFavorites,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
+        children: cityGroupedSpots.entries.map((entry) {
+          final city = entry.key;
+          final spots = entry.value;
+
+          return Card(
+            color: kCardBase,
+            elevation: 2,
+            margin: const EdgeInsets.symmetric(vertical: 8),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Theme(
+              data: theme.copyWith(
+                dividerColor: Colors.transparent,
+                splashColor: kPressedTint.withOpacity(.25),
+                highlightColor: kPressedTint.withOpacity(.15),
+              ),
+              child: ExpansionTile(
+                tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                collapsedIconColor: kTextDark,
+                iconColor: kTextDark,
+                title: Text(
+                  city,
+                  style: const TextStyle(
+                    color: kTextDark,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 16,
+                  ),
+                ),
+                childrenPadding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
+                children: spots.map((spot) {
+                  return Container(
+                    margin: const EdgeInsets.only(top: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(.6),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: ListTile(
+                      leading: const Icon(Icons.place_outlined, color: kTextDark),
+                      title: Text(
+                        spot['Name'] ?? '無名稱',
+                        style: const TextStyle(
+                          color: kTextDark,
+                          fontWeight: FontWeight.w700,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      subtitle: (spot['Add']?.isNotEmpty ?? false)
+                          ? Text(
+                              spot['Add']!,
+                              style: const TextStyle(color: kTextDark),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            )
+                          : const Text('無地址', style: TextStyle(color: kTextDark)),
+                      trailing: const Icon(Icons.chevron_right, color: kTextDark),
+                      onTap: () => _showSpotSheet(spot), // 點擊開下方資訊視窗
+                      onLongPress: () => _openInfo(spot), // 長按直接開本地資訊 Dialog（可選）
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+
+
+  @override
+  Widget build(BuildContext context) {
+    // 若嵌入在其它頁面的 Tab 內，就不要再包一層 Scaffold/AppBar
+    if (widget.isEmbedded) {
+      return _buildBody(context);
+    }
+
+    // 獨立頁面時維持原本的 Scaffold + AppBar
     return Scaffold(
       backgroundColor: kBgCream,
       appBar: AppBar(
@@ -332,83 +427,10 @@ class _FavoritesSpotPageState extends State<FavoritesSpotPage> {
         ),
         iconTheme: const IconThemeData(color: kTextDark),
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation(kAccent)))
-          : cityGroupedSpots.isEmpty
-              ? const _EmptyState()
-              : RefreshIndicator(
-                  color: kAccent,
-                  onRefresh: _loadFavorites,
-                  child: ListView(
-                    padding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
-                    children: cityGroupedSpots.entries.map((entry) {
-                      final city = entry.key;
-                      final spots = entry.value;
-
-                      return Card(
-                        color: kCardBase,
-                        elevation: 2,
-                        margin: const EdgeInsets.symmetric(vertical: 8),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Theme(
-                          data: theme.copyWith(
-                            dividerColor: Colors.transparent,
-                            splashColor: kPressedTint.withOpacity(.25),
-                            highlightColor: kPressedTint.withOpacity(.15),
-                          ),
-                          child: ExpansionTile(
-                            tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                            collapsedIconColor: kTextDark,
-                            iconColor: kTextDark,
-                            title: Text(
-                              city,
-                              style: const TextStyle(
-                                color: kTextDark,
-                                fontWeight: FontWeight.w800,
-                                fontSize: 16,
-                              ),
-                            ),
-                            childrenPadding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
-                            children: spots.map((spot) {
-                              return Container(
-                                margin: const EdgeInsets.only(top: 8),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(.6),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: ListTile(
-                                  leading: const Icon(Icons.place_outlined, color: kTextDark),
-                                  title: Text(
-                                    spot['Name'] ?? '無名稱',
-                                    style: const TextStyle(
-                                      color: kTextDark,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  subtitle: (spot['Add']?.isNotEmpty ?? false)
-                                      ? Text(
-                                          spot['Add']!,
-                                          style: const TextStyle(color: kTextDark),
-                                          maxLines: 2,
-                                          overflow: TextOverflow.ellipsis,
-                                        )
-                                      : const Text('無地址', style: TextStyle(color: kTextDark)),
-                                  trailing: const Icon(Icons.chevron_right, color: kTextDark),
-                                  onTap: () => _showSpotSheet(spot), // ✅ 點擊開啟下方浮層
-                                ),
-                              );
-                            }).toList(),
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ),
+      body: _buildBody(context),
     );
   }
+
 }
 
 class _EmptyState extends StatelessWidget {

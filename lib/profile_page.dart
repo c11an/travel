@@ -7,8 +7,8 @@ import 'dart:io';
 import 'setting_page.dart';
 import 'login.dart';
 import 'favorites_spot_page.dart';
-import 'favorites_trip_page.dart';
 import 'travel_day_page.dart';
+import 'nickname_page.dart';
 
 // ===== 文青奶茶色系（與其他頁一致）=====
 const kBgCream     = Color(0xFFFAF3E0); // 背景：淡奶茶米色
@@ -109,7 +109,7 @@ class _ProfilePageState extends State<ProfilePage>
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(
-          builder: (_) => const LoginPage(),
+          builder: (_) => const NicknamePage(),
           settings: const RouteSettings(arguments: 'logged_out'),
         ),
         (route) => false,
@@ -274,23 +274,7 @@ class _ProfilePageState extends State<ProfilePage>
                     child: _buildTripList(myTrips),
                   ),
                   // 我的收藏
-                  Column(
-                    children: [
-                      Row(
-                        children: [
-                          _buildFavoriteBlock('收藏景點', Icons.place, kAccent,
-                              const FavoritesSpotPage()),
-                          const SizedBox(width: 16),
-                          _buildFavoriteBlock(
-                              '收藏行程',
-                              Icons.map,
-                              kPressedTint,
-                              const FavoritesTripPage()),
-                        ],
-                      ),
-                      const SizedBox(height: 20),
-                    ],
-                  ),
+                  const FavoritesSpotPage(),
                 ],
               ),
             ),

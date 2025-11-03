@@ -4,6 +4,7 @@ import 'dart:convert';
 
 import 'travel_info_page.dart';
 import 'travel_day_page.dart';
+import 'home.dart';
 
 // ===== 文青奶茶色系統一 =====
 const kBgCream     = Color(0xFFFAF3E0); // 背景：淡奶茶米色
@@ -14,7 +15,8 @@ const kAccent      = Color(0xFFB48A60); // 點綴：拿鐵咖啡色
 
 class TravelInputPage extends StatefulWidget {
   final int initialTabIndex;
-  const TravelInputPage({super.key, this.initialTabIndex = 0});
+  final bool showHomeButton;
+  const TravelInputPage({super.key, this.initialTabIndex = 0, this.showHomeButton = false,});
 
   @override
   State<TravelInputPage> createState() => _TravelInputPageState();
@@ -375,6 +377,19 @@ class _TravelInputPageState extends State<TravelInputPage> with TickerProviderSt
         elevation: 0,
         title: const Text("🗂 我的行程與收藏",
             style: TextStyle(color: kTextDark, fontWeight: FontWeight.bold)),
+        automaticallyImplyLeading: false,
+        leading: widget.showHomeButton
+      ? IconButton(
+          icon: const Icon(Icons.home, color: kTextDark),
+          onPressed: () {
+            Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(builder: (_) => const HomePage()), // ⬅ 換成你的首頁
+              (route) => false,
+            );
+          },
+        )
+      : null,
         bottom: TabBar(
           controller: _tabController,
           indicatorColor: kAccent,
